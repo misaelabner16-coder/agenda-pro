@@ -35,7 +35,6 @@ export type Workspace = {
   organization: Organization;
   membership: OrganizationMembership;
   location: Location;
-  defaultProfessional: Professional | null;
 };
 
 export type Service = {

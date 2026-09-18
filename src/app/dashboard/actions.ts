@@ -6,7 +6,16 @@ import { priceToCents } from "@/lib/format";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function text(formData: FormData, name: string) { return String(formData.get(name) ?? "").trim(); }
-function dashboardPaths() { ["/dashboard", "/dashboard/servicos", "/dashboard/horarios", "/dashboard/agenda"].forEach((path) => revalidatePath(path)); }
+function revalidateServices(publicSlug: string) {
+  revalidatePath("/dashboard/servicos");
+  revalidatePath("/dashboard");
+  revalidatePath(`/p/${publicSlug}`);
+}
+
+function revalidateSchedule() {
+  revalidatePath("/dashboard/agenda");
+  revalidatePath("/dashboard");
+}
 
 export async function createService(formData: FormData) {
   const workspace = await requireWorkspace();
@@ -23,7 +32,7 @@ export async function createService(formData: FormData) {
     p_price_cents: priceToCents(formData.get("price")),
   });
   if (error) throw new Error("Não foi possível cadastrar o serviço.");
-  dashboardPaths();
+  revalidateServices(workspace.location.public_slug);
 }
 
 export async function toggleService(formData: FormData) {
@@ -31,7 +40,7 @@ export async function toggleService(formData: FormData) {
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.from("services").update({ is_active: text(formData, "is_active") === "true" }).eq("id", text(formData, "service_id")).eq("organization_id", workspace.organization.id);
   if (error) throw new Error("Não foi possível atualizar o serviço.");
-  dashboardPaths();
+  revalidateServices(workspace.location.public_slug);
 }
 
 export async function deleteService(formData: FormData) {
@@ -39,7 +48,7 @@ export async function deleteService(formData: FormData) {
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.from("services").delete().eq("id", text(formData, "service_id")).eq("organization_id", workspace.organization.id);
   if (error) throw new Error("Não foi possível excluir o serviço.");
-  dashboardPaths();
+  revalidateServices(workspace.location.public_slug);
 }
 
 export async function saveBusinessHours(formData: FormData) {
@@ -58,7 +67,7 @@ export async function saveBusinessHours(formData: FormData) {
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("save_location_hours", { p_location_id: workspace.location.id, p_hours: hours });
   if (error) throw new Error("Não foi possível salvar os horários. Revise os intervalos informados.");
-  dashboardPaths();
+  revalidatePath("/dashboard/horarios");
 }
 
 export async function createBlock(formData: FormData) {
@@ -80,7 +89,7 @@ export async function createBlock(formData: FormData) {
   });
   if (error?.code === "23P01") throw new Error("Esse período já possui um agendamento ou bloqueio.");
   if (error) throw new Error("Não foi possível criar o bloqueio.");
-  dashboardPaths();
+  revalidateSchedule();
 }
 
 export async function deleteBlock(formData: FormData) {
@@ -88,5 +97,5 @@ export async function deleteBlock(formData: FormData) {
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.from("calendar_events").delete().eq("id", text(formData, "event_id")).eq("organization_id", workspace.organization.id).eq("event_type", "block");
   if (error) throw new Error("Não foi possível remover o bloqueio.");
-  dashboardPaths();
+  revalidateSchedule();
 }
