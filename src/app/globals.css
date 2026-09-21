@@ -6,3 +6,10 @@ html { background: var(--background); }
 body { margin: 0; min-width: 320px; background: var(--background); color: var(--foreground); font-family: Arial, Helvetica, sans-serif; }
 button, input, select, textarea { font: inherit; }
 button:not(:disabled), a { -webkit-tap-highlight-color: transparent; }
+button:not(:disabled), a[href], [role="button"] {
+  transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+button:not(:disabled):active, a[href]:active, [role="button"]:active { transform: scale(.97); }
+@media (prefers-reduced-motion: reduce) {
+  button:not(:disabled), a[href], [role="button"] { transition: none; }
+}

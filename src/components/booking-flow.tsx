@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { formatCurrency } from "@/lib/format";
 import type { PublicService } from "@/lib/types";
 
@@ -28,6 +29,7 @@ export function BookingFlow({ slug, locationName, timeZone, services }: Props) {
   const [selectedSlot, setSelectedSlot] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [bookingError, setBookingError] = useState("");
+  const [managementUrl, setManagementUrl] = useState("");
   const selectedService = useMemo(() => services.find((service) => service.id === serviceId), [services, serviceId]);
   const requestKey = `${slug}:${serviceId}:${date}`;
   const slots = slotResponse.key === requestKey ? slotResponse.slots : [];
@@ -58,10 +60,11 @@ export function BookingFlow({ slug, locationName, timeZone, services }: Props) {
     const body = await response.json();
     setSubmitting(false);
     if (!response.ok) { setBookingError(body.error ?? "Não foi possível confirmar o agendamento."); if (response.status === 409) setStep("slot"); return; }
+    setManagementUrl(typeof body.management_url === "string" ? body.management_url : "");
     setStep("success");
   }
 
-  if (step === "success" && selectedService) return <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-6 text-center"><span className="grid mx-auto size-12 place-items-center rounded-full bg-emerald-600 text-xl font-bold text-white">✓</span><h2 className="mt-4 text-xl font-bold text-emerald-950">Agendamento confirmado!</h2><p className="mt-2 leading-7 text-emerald-900">{selectedService.name} em {dateLabel(date, timeZone)} às {slotLabel(usableSelectedSlot, timeZone)}.</p><p className="mt-4 text-sm text-emerald-800">{locationName} espera por você.</p><button onClick={() => { setStep("service"); setSelectedSlot(""); }} className="mt-6 text-sm font-semibold text-emerald-800 underline">Fazer outro agendamento</button></div>;
+  if (step === "success" && selectedService) return <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-6 text-center"><span className="grid mx-auto size-12 place-items-center rounded-full bg-emerald-600 text-xl font-bold text-white">✓</span><h2 className="mt-4 text-xl font-bold text-emerald-950">Agendamento confirmado!</h2><p className="mt-2 leading-7 text-emerald-900">{selectedService.name} em {dateLabel(date, timeZone)} às {slotLabel(usableSelectedSlot, timeZone)}.</p><p className="mt-4 text-sm text-emerald-800">{locationName} espera por você.</p>{managementUrl && <Link href={managementUrl} className="mt-5 block rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm font-semibold text-emerald-800">Gerenciar ou cancelar agendamento</Link>}<button onClick={() => { setStep("service"); setSelectedSlot(""); }} className="mt-6 text-sm font-semibold text-emerald-800 underline">Fazer outro agendamento</button></div>;
 
   return <div>
     <div className="mb-6 flex items-center gap-2 text-xs font-semibold text-stone-500"><span className={step === "service" ? "text-emerald-700" : ""}>1. Serviço</span><span>—</span><span className={step === "slot" ? "text-emerald-700" : ""}>2. Horário</span><span>—</span><span className={step === "details" ? "text-emerald-700" : ""}>3. Dados</span></div>

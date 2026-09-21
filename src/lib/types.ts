@@ -21,6 +21,7 @@ export type Location = {
   time_zone: string;
   is_active: boolean;
   default_professional_id: string | null;
+  customer_cancel_minimum_minutes?: number;
 };
 
 export type Professional = {
@@ -73,4 +74,17 @@ export type CalendarEvent = {
   service_name: string | null;
   service_duration_minutes: number | null;
   service_price_cents: number | null;
+  cancelled_at?: string | null;
+  cancelled_by?: "customer" | "staff" | "system" | null;
+  cancellation_reason?: string | null;
+  series_id?: string | null;
+};
+
+export type Customer = {
+  id: string;
+  organization_id: string;
+  name: string;
+  phone: string;
+  is_fixed: boolean;
+  notes?: string | null;
 };

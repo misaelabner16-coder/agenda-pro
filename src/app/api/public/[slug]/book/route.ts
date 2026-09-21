@@ -12,8 +12,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
   const phone = typeof body?.customer_phone === "string" ? body.customer_phone.trim() : "";
   if (!serviceId || Number.isNaN(new Date(startsAt).valueOf()) || name.length < 2 || phone.length < 8) return NextResponse.json({ error: "Revise os dados do agendamento." }, { status: 400 });
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc("book_public_appointment", { p_slug: slug, p_service_id: serviceId, p_starts_at: startsAt, p_customer_name: name, p_customer_phone: phone });
+  const { data, error } = await supabase.rpc("book_public_appointment_with_management", { p_slug: slug, p_service_id: serviceId, p_starts_at: startsAt, p_customer_name: name, p_customer_phone: phone });
   if (error?.code === "23P01") return NextResponse.json({ error: "Esse horário acabou de ser reservado. Escolha outro horário." }, { status: 409 });
   if (error) return NextResponse.json({ error: "Não foi possível confirmar o agendamento." }, { status: 400 });
-  return NextResponse.json({ ok: true }, { status: 201 });
+  const row = Array.isArray(data) ? data[0] as { management_token?: string } | undefined : undefined;
+  if (!row?.management_token) return NextResponse.json({ error: "Não foi possível criar o link de gerenciamento." }, { status: 500 });
+  return NextResponse.json({ ok: true, management_url: `/p/${encodeURIComponent(slug)}/agendamento/${encodeURIComponent(row.management_token)}` }, { status: 201 });
 }
