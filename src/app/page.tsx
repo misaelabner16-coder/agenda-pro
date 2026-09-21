@@ -9,27 +9,27 @@ const features = [
 export default function Home() {
   return (
     <main className="min-h-screen bg-stone-50 text-stone-900">
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5 sm:px-8">
-        <Link className="flex items-center gap-2 text-lg font-bold tracking-tight" href="/">
+      <header className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-4 sm:px-8 sm:py-5">
+        <Link className="flex shrink-0 items-center gap-2 text-lg font-bold tracking-tight" href="/">
           <span className="grid size-8 place-items-center rounded-xl bg-emerald-600 text-sm text-white">A</span>
           Agenda Pro
         </Link>
-        <div className="flex items-center gap-3">
-          <Link className="hidden text-sm font-medium text-stone-600 sm:block" href="/login">Entrar</Link>
-          <Link className="rounded-xl bg-stone-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm" href="/cadastro">Criar agenda</Link>
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          <Link className="rounded-lg px-2.5 py-2 text-sm font-semibold text-stone-700 transition hover:bg-stone-100 hover:text-stone-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 sm:px-3" href="/login">Entrar</Link>
+          <Link className="rounded-xl bg-stone-900 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-stone-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900 sm:px-4 sm:py-2.5" href="/cadastro">Criar agenda</Link>
         </div>
       </header>
 
-      <section className="mx-auto grid max-w-6xl gap-12 px-5 pb-20 pt-14 sm:px-8 md:grid-cols-[1.05fr_.95fr] md:items-center md:py-24">
+      <section className="mx-auto grid max-w-6xl gap-9 px-5 pb-14 pt-12 sm:px-8 md:grid-cols-[1.05fr_.95fr] md:items-center md:gap-12 md:py-24">
         <div>
           <p className="mb-4 text-sm font-semibold uppercase tracking-[0.18em] text-emerald-700">Feito para pequenos negócios</p>
           <h1 className="max-w-xl text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">Sua agenda online, simples de usar.</h1>
           <p className="mt-6 max-w-lg text-lg leading-8 text-stone-600">Organize os horários da sua barbearia e deixe seus clientes agendarem sozinhos, pelo celular.</p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <Link className="rounded-xl bg-emerald-600 px-5 py-3 text-center font-semibold text-white shadow-sm transition hover:bg-emerald-700" href="/cadastro">Começar agora</Link>
-            <Link className="rounded-xl border border-stone-200 bg-white px-5 py-3 text-center font-semibold text-stone-700 transition hover:border-stone-300" href="/cadastro">Criar minha página</Link>
+          <div className="mt-8">
+            <Link className="block rounded-xl bg-emerald-600 px-5 py-3 text-center font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 sm:inline-block" href="/cadastro">Criar minha agenda</Link>
           </div>
-          <p className="mt-4 text-sm text-stone-500">Sem pagamentos, contratos ou integrações neste MVP.</p>
+          <p className="mt-4 text-sm text-stone-500">Crie sua conta e publique sua página de agendamento.</p>
+          <p className="mt-2 text-sm text-stone-600">Já tem uma conta? <Link className="font-semibold text-emerald-700 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600" href="/login">Entrar no painel</Link></p>
         </div>
 
         <div className="rounded-3xl border border-stone-200 bg-white p-4 shadow-xl shadow-stone-200/60 sm:p-6">
