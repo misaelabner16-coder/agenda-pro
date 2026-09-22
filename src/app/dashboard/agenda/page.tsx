@@ -10,7 +10,11 @@ export default async function AgendaPage() {
   const supabase = await createSupabaseServerClient();
   const retentionStart = new Date();
   retentionStart.setDate(retentionStart.getDate() - 30);
-  const { data } = await supabase.from("calendar_events").select("*").eq("organization_id", workspace.organization.id).eq("location_id", workspace.location.id).gte("ends_at", retentionStart.toISOString()).order("starts_at").limit(100);
+  const { data, error } = await supabase.from("calendar_events").select("*").eq("organization_id", workspace.organization.id).eq("location_id", workspace.location.id).gte("ends_at", retentionStart.toISOString()).order("starts_at").limit(100);
+  if (error) {
+    console.error("[agenda] Falha ao carregar eventos.", { code: error.code, message: error.message });
+    throw new Error("Não foi possível carregar a agenda.");
+  }
   const events = (data ?? []) as CalendarEvent[];
   const defaultDate = new Intl.DateTimeFormat("en-CA", { timeZone: workspace.location.time_zone }).format(new Date());
   return <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_23rem]">

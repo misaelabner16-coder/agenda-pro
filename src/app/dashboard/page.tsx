@@ -9,14 +9,26 @@ export default async function DashboardPage() {
   const workspace = await requireWorkspace();
   const supabase = await createSupabaseServerClient();
   const now = new Date();
-  const tomorrow = new Date(now); tomorrow.setDate(tomorrow.getDate() + 1);
-  const [{ data: events }, { data: services }] = await Promise.all([
+  const countWindowStart = new Date(now.getTime() - 36 * 60 * 60 * 1000);
+  const countWindowEnd = new Date(now.getTime() + 36 * 60 * 60 * 1000);
+  const [eventsResult, servicesResult, nearbyBookingsResult] = await Promise.all([
     supabase.from("calendar_events").select("*").eq("organization_id", workspace.organization.id).eq("location_id", workspace.location.id).eq("status", "confirmed").gte("starts_at", now.toISOString()).order("starts_at").limit(5),
     supabase.from("services").select("*").eq("organization_id", workspace.organization.id).eq("is_active", true),
+    supabase.from("calendar_events").select("starts_at").eq("organization_id", workspace.organization.id).eq("location_id", workspace.location.id).eq("event_type", "booking").eq("status", "confirmed").gte("starts_at", countWindowStart.toISOString()).lt("starts_at", countWindowEnd.toISOString()),
   ]);
+  const firstError = eventsResult.error ?? servicesResult.error ?? nearbyBookingsResult.error;
+  if (firstError) {
+    console.error("[dashboard] Falha ao carregar resumo.", { code: firstError.code, message: firstError.message });
+    throw new Error("Não foi possível carregar o resumo da agenda.");
+  }
+  const { data: events } = eventsResult;
+  const { data: services } = servicesResult;
+  const { data: nearbyBookings } = nearbyBookingsResult;
   const upcoming = (events ?? []) as CalendarEvent[];
   const activeServices = (services ?? []) as Service[];
-  const todayCount = upcoming.filter((event) => new Date(event.starts_at) < tomorrow && event.event_type === "booking").length;
+  const localDate = new Intl.DateTimeFormat("en-CA", { timeZone: workspace.location.time_zone });
+  const today = localDate.format(now);
+  const todayCount = (nearbyBookings ?? []).filter((event) => localDate.format(new Date(String(event.starts_at))) === today).length;
   return (
     <>
       <DashboardTutorial />

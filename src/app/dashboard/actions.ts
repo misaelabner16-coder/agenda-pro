@@ -136,24 +136,31 @@ export async function createCustomerAndSeries(_state: ActionState, formData: For
   const startTime = text(formData, "start_time");
   const serviceId = text(formData, "service_id");
   const maxOccurrences = text(formData, "max_occurrences");
+  const endsOn = text(formData, "ends_on");
   if (name.length < 2 || !/^\d{8,15}$/.test(phone)) return { error: "Informe nome e telefone válidos." };
+  if (!serviceId || !["weekly", "biweekly", "monthly"].includes(frequency) || !/^\d{4}-\d{2}-\d{2}$/.test(startsOn) || !/^\d{2}:\d{2}$/.test(startTime)) return { error: "Revise o serviço, a frequência, a data e o horário." };
+  if (endsOn && (!/^\d{4}-\d{2}-\d{2}$/.test(endsOn) || endsOn < startsOn)) return { error: "A data final não pode ser anterior à primeira data." };
+  if (maxOccurrences && (!Number.isInteger(Number(maxOccurrences)) || Number(maxOccurrences) < 1 || Number(maxOccurrences) > 240)) return { error: "Informe entre 1 e 240 ocorrências." };
   if (!workspace.location.default_professional_id) return { error: "A unidade ainda não possui um profissional padrão." };
   const supabase = await createSupabaseServerClient();
-  const { data: customer, error: customerError } = await supabase.from("customers").upsert({ organization_id: workspace.organization.id, name, phone, is_fixed: true }, { onConflict: "organization_id,phone" }).select("id").single();
-  if (customerError || !customer) return { error: "Não foi possível cadastrar o cliente." };
-  const { error } = await supabase.rpc("create_recurring_booking", {
+  const { error } = await supabase.rpc("create_customer_and_recurring_booking", {
     p_location_id: workspace.location.id,
     p_professional_id: workspace.location.default_professional_id,
-    p_customer_id: customer.id,
+    p_customer_name: name,
+    p_customer_phone: phone,
     p_service_id: serviceId,
     p_frequency: frequency,
     p_starts_on: startsOn,
     p_start_time: startTime,
-    p_ends_on: text(formData, "ends_on") || null,
+    p_ends_on: endsOn || null,
     p_max_occurrences: maxOccurrences ? Number(maxOccurrences) : null,
   });
-  if (error?.code === "23P01") return { error: "Há conflito com outro agendamento. Nenhuma recorrência foi criada." };
-  if (error) return { error: "Não foi possível criar a recorrência." };
+  if (error?.code === "23P01") return { error: "Uma das datas está fora do expediente ou já ocupada. Nenhuma recorrência foi criada." };
+  if (error?.code === "22023") return { error: "Revise os dados da recorrência e tente novamente." };
+  if (error) {
+    console.error("[recurrence] Falha ao cadastrar cliente fixo.", { code: error.code, message: error.message });
+    return { error: "Não foi possível criar a recorrência." };
+  }
   revalidatePath("/dashboard/clientes");
   revalidateSchedule();
   return { success: "Cliente fixo e recorrência cadastrados." };

@@ -21,7 +21,11 @@ export async function createBusiness(formData: FormData) {
     p_time_zone: "America/Sao_Paulo",
   });
   if (error?.code === "23505") redirect(`/onboarding?erro=${encodeURIComponent("Esse endereço já está em uso. Escolha outro.")}`);
-  if (error) redirect(`/onboarding?erro=${encodeURIComponent("Não foi possível salvar o estabelecimento.")}`);
+  if (error?.code === "42501") redirect(`/login?erro=${encodeURIComponent("Sua sessão expirou. Entre novamente para criar a agenda.")}`);
+  if (error) {
+    console.error("[onboarding] Falha ao criar workspace.", { code: error.code, message: error.message });
+    redirect(`/onboarding?erro=${encodeURIComponent("Não foi possível criar a agenda agora. Tente novamente em alguns instantes.")}`);
+  }
   revalidatePath("/", "layout");
   redirect("/dashboard");
 }

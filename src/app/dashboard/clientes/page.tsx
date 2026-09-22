@@ -7,11 +7,19 @@ import type { Customer, Service } from "@/lib/types";
 export default async function CustomersPage() {
   const workspace = await requireWorkspace();
   const supabase = await createSupabaseServerClient();
-  const [{ data: customers }, { data: services }, { data: series }] = await Promise.all([
+  const [customersResult, servicesResult, seriesResult] = await Promise.all([
     supabase.from("customers").select("*").eq("organization_id", workspace.organization.id).order("name").limit(100),
     supabase.from("services").select("*").eq("organization_id", workspace.organization.id).eq("is_active", true).order("name"),
     supabase.from("appointment_series").select("id, customer_id, frequency, starts_on, ends_on, max_occurrences, is_active").eq("organization_id", workspace.organization.id).order("created_at", { ascending: false }),
   ]);
+  const firstError = customersResult.error ?? servicesResult.error ?? seriesResult.error;
+  if (firstError) {
+    console.error("[customers] Falha ao carregar clientes fixos.", { code: firstError.code, message: firstError.message });
+    throw new Error("Não foi possível carregar os clientes.");
+  }
+  const { data: customers } = customersResult;
+  const { data: services } = servicesResult;
+  const { data: series } = seriesResult;
   const typedCustomers = (customers ?? []) as Customer[];
   const typedServices = (services ?? []) as Service[];
   const seriesByCustomer = new Map((series ?? []).map((item) => [item.customer_id as string, item]));

@@ -12,11 +12,11 @@ type Props = Omit<React.FormHTMLAttributes<HTMLFormElement>, "action"> & {
 };
 
 export function ActionForm({ action, children, ...props }: Props) {
-  const [state, formAction] = useActionState(action, initialState);
+  const [state, formAction, pending] = useActionState(action, initialState);
   const { showToast } = useToast();
   useEffect(() => {
     if (state.success) showToast(state.success);
     if (state.error) showToast(state.error, "error");
   }, [state, showToast]);
-  return <form {...props} action={formAction}>{children}</form>;
+  return <form {...props} action={formAction}><fieldset disabled={pending} className="contents">{children}</fieldset></form>;
 }

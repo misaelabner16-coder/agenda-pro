@@ -18,7 +18,10 @@ export async function proxy(request: NextRequest) {
       },
     },
   });
-  await supabase.auth.getUser();
+  // getClaims validates the JWT and refreshes the cookie when necessary.
+  // Keep this call immediately after creating the client, as recommended by
+  // @supabase/ssr, so the browser and Server Components stay in sync.
+  await supabase.auth.getClaims();
   return response;
 }
 

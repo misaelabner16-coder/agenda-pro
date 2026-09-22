@@ -18,21 +18,43 @@ export const currentUser = cache(async () => {
  */
 const workspaceForUser = cache(async (userId: string): Promise<Workspace | null> => {
   const supabase = await createSupabaseServerClient();
-  const { data: membership } = await supabase
+  const { data: memberships, error: membershipError } = await supabase
     .from("organization_memberships")
     .select("id, organization_id, user_id, role, is_active, created_at")
     .eq("user_id", userId)
     .eq("is_active", true)
     .order("created_at")
-    .limit(1)
-    .maybeSingle();
-  if (!membership) return null;
+    .limit(20);
+  if (membershipError) {
+    console.error("[workspace] Falha ao consultar vínculos ativos.", { code: membershipError.code, message: membershipError.message });
+    throw new Error("Não foi possível carregar o vínculo da conta.");
+  }
+  if (!memberships?.length) return null;
 
-  const typedMembership = membership as unknown as OrganizationMembership;
-  const [{ data: organization }, { data: location }] = await Promise.all([
-    supabase.from("organizations").select("id, name, slug, is_active").eq("id", typedMembership.organization_id).eq("is_active", true).maybeSingle(),
-    supabase.from("locations").select("id, organization_id, name, public_slug, time_zone, is_active, default_professional_id, created_at").eq("organization_id", typedMembership.organization_id).eq("is_active", true).order("created_at").limit(1).maybeSingle(),
+  const typedMemberships = memberships as unknown as OrganizationMembership[];
+  const organizationIds = typedMemberships.map((membership) => membership.organization_id);
+  const [{ data: organizations, error: organizationError }, { data: locations, error: locationError }] = await Promise.all([
+    supabase.from("organizations").select("id, name, slug, is_active").in("id", organizationIds).eq("is_active", true),
+    supabase.from("locations").select("id, organization_id, name, public_slug, time_zone, is_active, default_professional_id, created_at").in("organization_id", organizationIds).eq("is_active", true).order("created_at"),
   ]);
+  if (organizationError || locationError) {
+    console.error("[workspace] Falha ao consultar empresa/unidade.", {
+      organizationCode: organizationError?.code,
+      locationCode: locationError?.code,
+    });
+    throw new Error("Não foi possível carregar a empresa e a unidade.");
+  }
+
+  const organizationById = new Map((organizations ?? []).map((organization) => [organization.id, organization]));
+  const firstLocationByOrganization = new Map<string, Location>();
+  for (const rawLocation of locations ?? []) {
+    const location = rawLocation as unknown as Location;
+    if (!firstLocationByOrganization.has(location.organization_id)) firstLocationByOrganization.set(location.organization_id, location);
+  }
+  const typedMembership = typedMemberships.find((membership) => organizationById.has(membership.organization_id) && firstLocationByOrganization.has(membership.organization_id));
+  if (!typedMembership) return null;
+  const organization = organizationById.get(typedMembership.organization_id);
+  const location = firstLocationByOrganization.get(typedMembership.organization_id);
   if (!organization || !location) return null;
 
   return {

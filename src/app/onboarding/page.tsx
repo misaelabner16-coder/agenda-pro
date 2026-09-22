@@ -4,6 +4,7 @@ import { createBusiness } from "./actions";
 import { redirect } from "next/navigation";
 import { signOut } from "@/app/auth/actions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { PendingSubmitButton } from "@/components/pending-submit-button";
 
 export default async function OnboardingPage({ searchParams }: { searchParams: Promise<{ erro?: string }> }) {
   const user = await currentUser();
@@ -29,7 +30,7 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
           <label className="block text-sm font-semibold">Nome do estabelecimento<input required name="name" minLength={2} className="mt-1.5 w-full rounded-xl border border-stone-300 px-3 py-3 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100" placeholder="Ex.: Barbearia do Misael" /></label>
           <label className="block text-sm font-semibold">Endereço da agenda<span className="mt-1.5 flex overflow-hidden rounded-xl border border-stone-300 focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-100"><span className="border-r border-stone-200 bg-stone-50 px-3 py-3 text-sm text-stone-500">/p/</span><input required name="slug" minLength={3} pattern="[a-zA-Z0-9-]+" className="min-w-0 flex-1 px-3 py-3 outline-none" placeholder="barbearia-do-misael" /></span></label>
           <p className="text-sm leading-6 text-stone-500">Use letras, números e hífens. O fuso inicial será Brasil/São Paulo.</p>
-          <button className="w-full rounded-xl bg-emerald-600 px-4 py-3 font-semibold text-white hover:bg-emerald-700">Criar minha agenda</button>
+          <PendingSubmitButton idleLabel="Criar minha agenda" pendingLabel="Criando sua agenda..." className="w-full rounded-xl bg-emerald-600 px-4 py-3 font-semibold text-white hover:bg-emerald-700 disabled:cursor-wait disabled:opacity-60" />
         </form>
       </section>
     </main>

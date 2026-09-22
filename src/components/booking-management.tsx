@@ -1,18 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 type Props = { slug: string; token: string; canCancel: boolean; status: string };
 
 export function BookingManagement({ slug, token, canCancel, status }: Props) {
   const [state, setState] = useState(status === "cancelled" ? "cancelled" : "ready");
   const [error, setError] = useState("");
+  const cancellationInFlight = useRef(false);
   async function cancel() {
+    if (cancellationInFlight.current) return;
+    cancellationInFlight.current = true;
     setState("saving"); setError("");
-    const response = await fetch(`/api/public/${encodeURIComponent(slug)}/agendamento/${encodeURIComponent(token)}/cancel`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({}) });
-    const body = await response.json();
-    if (!response.ok) { setError(body.error ?? "Não foi possível cancelar."); setState("ready"); return; }
-    setState("cancelled");
+    try {
+      const response = await fetch(`/api/public/${encodeURIComponent(slug)}/agendamento/${encodeURIComponent(token)}/cancel`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({}) });
+      const body = await response.json();
+      if (!response.ok) { setError(body.error ?? "Não foi possível cancelar."); setState("ready"); return; }
+      setState("cancelled");
+    } catch {
+      setError("Não foi possível conectar ao servidor. Verifique sua internet e tente novamente.");
+      setState("ready");
+    } finally {
+      cancellationInFlight.current = false;
+    }
   }
   if (state === "cancelled") return <p className="mt-6 rounded-xl bg-stone-100 px-4 py-3 text-center text-sm font-semibold text-stone-700">Este agendamento foi cancelado. O horário foi liberado.</p>;
   if (!canCancel) return <p className="mt-6 rounded-xl bg-amber-50 px-4 py-3 text-center text-sm text-amber-900">O prazo para cancelamento online já passou. Entre em contato com o estabelecimento.</p>;
