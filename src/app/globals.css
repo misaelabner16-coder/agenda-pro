@@ -1,15 +1,48 @@
 @import "tailwindcss";
 
-:root { --background: #fafaf9; --foreground: #1c1917; }
+/* Keep existing utility classes while applying the navy design system across the MVP. */
+@theme {
+  --color-emerald-50: #eef4f9;
+  --color-emerald-100: #dce9f3;
+  --color-emerald-200: #bcd2e6;
+  --color-emerald-300: #91b3d1;
+  --color-emerald-400: #648fb5;
+  --color-emerald-500: #386c98;
+  --color-emerald-600: #16476f;
+  --color-emerald-700: #12395c;
+  --color-emerald-800: #0e2c49;
+  --color-emerald-900: #0a213a;
+  --color-emerald-950: #07182c;
+  --color-stone-50: #faf9f6;
+  --color-stone-100: #f3f5f7;
+  --color-stone-200: #e2e7ed;
+  --color-stone-300: #c7d0da;
+  --color-stone-400: #91a0b0;
+  --color-stone-500: #627286;
+  --color-stone-600: #4b5e73;
+  --color-stone-700: #354b61;
+  --color-stone-800: #21384f;
+  --color-stone-900: #0b223d;
+  --color-gold-100: #f8efd9;
+  --color-gold-300: #e4c986;
+  --color-gold-400: #d1ad61;
+  --color-gold-500: #b78b3f;
+}
+:root { --background: #f3f5f7; --foreground: #0b223d; }
 * { box-sizing: border-box; }
 html { background: var(--background); }
-body { margin: 0; min-width: 320px; background: var(--background); color: var(--foreground); font-family: Arial, Helvetica, sans-serif; }
+body { margin: 0; min-width: 320px; background: var(--background); color: var(--foreground); font-family: "Segoe UI Variable", "Segoe UI", Arial, sans-serif; -webkit-font-smoothing: antialiased; }
 button, input, select, textarea { font: inherit; }
+input, select, textarea { background-color: white; }
+::selection { background: #dce9f3; color: #07182c; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid #b78b3f; outline-offset: 2px; }
 button:not(:disabled), a { -webkit-tap-highlight-color: transparent; }
 button:not(:disabled), a[href], [role="button"] {
   transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease, border-color 140ms ease, color 140ms ease;
 }
 button:not(:disabled):active, a[href]:active, [role="button"]:active { transform: scale(.97); }
+.premium-surface { border: 1px solid #e2e7ed; box-shadow: 0 16px 50px -36px rgba(7, 24, 44, .45), 0 4px 16px -12px rgba(7, 24, 44, .18); }
+.premium-grid { background-image: radial-gradient(rgba(228, 201, 134, .14) 1px, transparent 1px); background-size: 24px 24px; }
 @media (prefers-reduced-motion: reduce) {
   button:not(:disabled), a[href], [role="button"] { transition: none; }
 }

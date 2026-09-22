@@ -15,10 +15,11 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
   if (isPlatformAdmin) redirect("/admin");
   const { erro } = await searchParams;
   return (
-    <main className="grid min-h-screen place-items-center bg-stone-100 px-4 py-10">
-      <section className="w-full max-w-xl rounded-3xl bg-white p-6 shadow-xl shadow-stone-200/70 sm:p-8">
-        <Link href="/" className="inline-flex items-center gap-2 text-lg font-bold"><span className="grid size-8 place-items-center rounded-xl bg-emerald-600 text-sm text-white">A</span>Agenda Pro</Link>
-        <p className="mt-8 text-sm font-semibold uppercase tracking-[.16em] text-emerald-700">Primeiro passo</p>
+    <main className="relative grid min-h-screen place-items-center overflow-hidden bg-stone-100 px-4 py-10">
+      <div aria-hidden="true" className="pointer-events-none absolute -top-64 left-1/2 h-96 w-[48rem] -translate-x-1/2 rounded-full bg-emerald-200/60 blur-3xl" />
+      <section className="premium-surface relative w-full max-w-xl rounded-3xl bg-white p-6 sm:p-8">
+        <Link href="/" className="inline-flex items-center gap-2.5 text-lg font-bold"><span className="grid size-9 place-items-center rounded-xl bg-emerald-950 text-sm text-gold-300">A</span>Agenda Pro</Link>
+        <p className="mt-8 text-xs font-bold uppercase tracking-[.18em] text-emerald-700">Primeiro passo</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight">Vamos criar sua agenda.</h1>
         <p className="mt-2 leading-7 text-stone-600">Essa conta ainda não está vinculada a uma agenda. Crie uma nova abaixo ou entre com a conta que já administra seu estabelecimento.</p>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-stone-50 px-4 py-3 text-sm text-stone-600">
@@ -30,7 +31,7 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
           <label className="block text-sm font-semibold">Nome do estabelecimento<input required name="name" minLength={2} className="mt-1.5 w-full rounded-xl border border-stone-300 px-3 py-3 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100" placeholder="Ex.: Barbearia do Misael" /></label>
           <label className="block text-sm font-semibold">Endereço da agenda<span className="mt-1.5 flex overflow-hidden rounded-xl border border-stone-300 focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-100"><span className="border-r border-stone-200 bg-stone-50 px-3 py-3 text-sm text-stone-500">/p/</span><input required name="slug" minLength={3} pattern="[a-zA-Z0-9-]+" className="min-w-0 flex-1 px-3 py-3 outline-none" placeholder="barbearia-do-misael" /></span></label>
           <p className="text-sm leading-6 text-stone-500">Use letras, números e hífens. O fuso inicial será Brasil/São Paulo.</p>
-          <PendingSubmitButton idleLabel="Criar minha agenda" pendingLabel="Criando sua agenda..." className="w-full rounded-xl bg-emerald-600 px-4 py-3 font-semibold text-white hover:bg-emerald-700 disabled:cursor-wait disabled:opacity-60" />
+          <PendingSubmitButton idleLabel="Criar minha agenda" pendingLabel="Criando sua agenda..." className="w-full rounded-xl bg-emerald-950 px-4 py-3 font-semibold text-white shadow-lg shadow-emerald-950/15 hover:bg-emerald-800 disabled:cursor-wait disabled:opacity-60" />
         </form>
       </section>
     </main>
