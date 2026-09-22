@@ -46,7 +46,7 @@ export function BookingManagement({ slug, token, serviceId, timeZone, canCancel,
     try {
       const response = await fetch(`/api/public/${encodeURIComponent(slug)}/agendamento/${encodeURIComponent(token)}/reschedule`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ starts_at: selectedSlot }) });
       const body = await response.json();
-      if (!response.ok) { setError(body.error ?? "Não foi possível reagendar."); setState("reschedule"); if (response.status === 409) setSlotResponse((current) => ({ ...current, slots: current.slots.filter((slot) => slot !== selectedSlot) })); return; }
+      if (!response.ok) { setError(body.error ?? "Não foi possível reagendar."); setState("reschedule"); if (response.status === 409) { setSlotResponse((current) => ({ ...current, slots: current.slots.filter((slot) => slot !== selectedSlot) })); setSelectedSlot(""); } return; }
       window.location.reload();
     } catch { setError("Não foi possível conectar ao servidor. Verifique sua internet e tente novamente."); setState("reschedule"); }
     finally { rescheduleInFlight.current = false; }

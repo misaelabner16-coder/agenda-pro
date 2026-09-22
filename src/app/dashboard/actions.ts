@@ -91,7 +91,8 @@ export async function createAvailabilityBlock(_state: ActionState, formData: For
   const weekDays = formData.getAll("week_days").map(Number).filter((day) => Number.isInteger(day) && day >= 0 && day <= 6);
   if (!["single", "weekly", "range"].includes(mode)) return { error: "Escolha o tipo de bloqueio." };
   if (mode === "weekly" && weekDays.length === 0) return { error: "Selecione ao menos um dia da semana." };
-  if (mode !== "weekly" && (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate) || endDate < startDate)) return { error: "Revise as datas do bloqueio." };
+  if (mode !== "weekly" && !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) return { error: "Revise a data do bloqueio." };
+  if (mode === "range" && (!/^\d{4}-\d{2}-\d{2}$/.test(endDate) || endDate < startDate)) return { error: "Revise a data final do bloqueio." };
   if (mode !== "range" && (!/^\d{2}:\d{2}$/.test(startsAt) || !/^\d{2}:\d{2}$/.test(endsAt) || endsAt <= startsAt)) return { error: "Revise os horários do bloqueio." };
   if (!workspace.location.default_professional_id) return { error: "A unidade ainda não possui um profissional padrão." };
   const supabase = await createSupabaseServerClient();
