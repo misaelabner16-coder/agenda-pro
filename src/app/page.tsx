@@ -15,7 +15,7 @@ export default function Home() {
           Agenda Pro
         </Link>
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-          <Link className="rounded-lg border border-stone-200 bg-white px-2.5 py-2 text-sm font-semibold text-stone-700 transition hover:border-stone-300 hover:bg-stone-100 hover:text-stone-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 sm:px-3" href="/login">Entrar</Link>
+          <Link className="rounded-xl border-2 border-emerald-600 bg-white px-3 py-2 text-sm font-bold text-emerald-800 shadow-sm transition hover:bg-emerald-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 sm:px-4 sm:py-2.5" href="/login">Entrar</Link>
           <Link className="rounded-xl bg-stone-900 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-stone-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900 sm:px-4 sm:py-2.5" href="/cadastro">Criar agenda</Link>
         </div>
       </header>

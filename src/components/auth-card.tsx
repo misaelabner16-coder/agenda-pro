@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PendingSubmitButton } from "@/components/pending-submit-button";
+import { PasswordField } from "@/components/password-field";
 
 type Props = {
   mode: "login" | "signup";
@@ -22,7 +23,7 @@ export function AuthCard({ mode, error, message, action, resendAction, confirmat
         {message && <p className="mt-5 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{message}</p>}
         <form action={action} className="mt-6 space-y-4">
           <label className="block text-sm font-semibold">E-mail<input required type="email" name="email" autoComplete="email" className="mt-1.5 w-full rounded-xl border border-stone-300 px-3 py-3 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100" placeholder="voce@exemplo.com" /></label>
-          <label className="block text-sm font-semibold">Senha<input required minLength={8} type="password" name="password" autoComplete={isLogin ? "current-password" : "new-password"} className="mt-1.5 w-full rounded-xl border border-stone-300 px-3 py-3 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100" placeholder="Mínimo de 8 caracteres" /></label>
+          <PasswordField autoComplete={isLogin ? "current-password" : "new-password"} />
           <PendingSubmitButton idleLabel={isLogin ? "Entrar" : "Criar conta"} pendingLabel={isLogin ? "Entrando..." : "Criando conta..."} className="w-full rounded-xl bg-emerald-600 px-4 py-3 font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-wait disabled:opacity-60" />
         </form>
         {isLogin && resendAction && <form action={resendAction} className="mt-4 rounded-xl border border-stone-200 bg-stone-50 p-4"><p className="text-sm text-stone-600">Não recebeu a confirmação?</p><input required type="email" name="email" defaultValue={confirmationEmail} className="mt-3 w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600" placeholder="voce@exemplo.com" /><PendingSubmitButton idleLabel="Reenviar e-mail" pendingLabel="Reenviando..." className="mt-3 w-full rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-sm font-semibold text-emerald-700 disabled:cursor-wait disabled:opacity-60" /></form>}

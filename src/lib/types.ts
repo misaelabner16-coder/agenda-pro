@@ -80,6 +80,17 @@ export type CalendarEvent = {
   series_id?: string | null;
 };
 
+export type AvailabilityBlock = {
+  id: string;
+  title: string;
+  start_date: string | null;
+  end_date: string | null;
+  week_days: number[] | null;
+  start_time: string | null;
+  end_time: string | null;
+  is_all_day: boolean;
+};
+
 export type Customer = {
   id: string;
   organization_id: string;
