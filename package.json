@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test --experimental-strip-types src/lib/availability.test.ts"
+    "test": "node --test --experimental-strip-types src/lib/availability.test.ts src/lib/calendar-view.test.ts src/lib/deployment-target.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",
