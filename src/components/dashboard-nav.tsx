@@ -2,15 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
 
 const navigation = [
-  ["Visão geral", "/dashboard"],
+  ["Início", "/dashboard"],
   ["Agenda", "/dashboard/agenda"],
   ["Clientes", "/dashboard/clientes"],
   ["Serviços", "/dashboard/servicos"],
   ["Horários", "/dashboard/horarios"],
-  ["Configurações", "/dashboard/configuracoes"],
+  ["Ajustes", "/dashboard/configuracoes"],
 ];
 const iconPaths = [
   "M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z",
@@ -23,15 +22,13 @@ const iconPaths = [
 
 export function DashboardNav({ isAdmin }: { isAdmin: boolean }) {
   const pathname = usePathname();
-  const [open, setOpen] = useState(false);
   return (
-    <><button type="button" aria-expanded={open} aria-controls="dashboard-navigation" onClick={() => setOpen(!open)} className="absolute right-4 top-4 flex min-h-11 items-center gap-2 rounded-xl border border-white/20 px-3 text-sm font-semibold lg:hidden"><span aria-hidden="true">{open ? "×" : "☰"}</span>{open ? "Fechar" : "Menu"}</button>
-    <nav id="dashboard-navigation" aria-label="Navegação do painel" className={`${open ? "grid" : "hidden"} grid-cols-3 gap-1 p-3 lg:grid lg:grid-cols-1 lg:p-4`}>
+    <nav aria-label="Navegação do painel" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-6 border-t border-stone-200 bg-white/95 px-1 pb-[max(.35rem,env(safe-area-inset-bottom))] pt-1.5 shadow-[0_-10px_30px_-20px_rgb(16_40_41_/_0.45)] backdrop-blur lg:static lg:grid-cols-1 lg:border-0 lg:bg-transparent lg:p-4 lg:shadow-none">
       {navigation.map(([label, href], index) => {
         const active = pathname === href;
-        return <Link key={href} href={href} onClick={() => setOpen(false)} aria-current={active ? "page" : undefined} className={`flex min-h-12 items-center justify-center gap-2 rounded-xl px-2 py-3 text-xs font-semibold lg:justify-start lg:px-4 lg:text-sm ${active ? "bg-emerald-100 text-emerald-950" : "text-stone-200 hover:bg-white/10 hover:text-white"}`}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="hidden size-5 shrink-0 lg:block"><path d={iconPaths[index]} /></svg>{label}</Link>;
+        return <Link key={href} href={href} aria-current={active ? "page" : undefined} className={`flex min-h-[3.8rem] flex-col items-center justify-center gap-1 rounded-xl px-1 py-1 text-[10px] font-semibold leading-none lg:min-h-12 lg:flex-row lg:justify-start lg:gap-3 lg:px-4 lg:py-3 lg:text-sm ${active ? "bg-emerald-100 text-emerald-950" : "text-stone-500 hover:bg-stone-100 hover:text-emerald-950 lg:text-stone-200 lg:hover:bg-white/10 lg:hover:text-white"}`}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="size-5 shrink-0"><path d={iconPaths[index]} /></svg><span>{label}</span></Link>;
       })}
-      {isAdmin && <Link href="/admin" className="col-span-3 rounded-xl px-4 py-3 text-center text-xs font-semibold text-gold-300 hover:bg-white/10 lg:col-span-1 lg:mt-6 lg:text-left">Administração global ↗</Link>}
-    </nav></>
+      {isAdmin && <Link href="/admin" className="hidden rounded-xl px-4 py-3 text-center text-xs font-semibold text-gold-300 hover:bg-white/10 lg:mt-6 lg:block lg:text-left">Administração global ↗</Link>}
+    </nav>
   );
 }
