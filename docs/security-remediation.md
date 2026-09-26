@@ -5,7 +5,7 @@
 Branch: `codex/security-hardening`. Base: `9e42932`.
 
 Prepared migration: `20260925230540_security_phase1_authorization.sql`.
-**Not applied permanently. No application deployment performed.**
+**Applied to São Paulo on 2026-09-26 after explicit approval. No application deployment performed.**
 
 Changes:
 
@@ -29,14 +29,25 @@ Project: `nuhxuhkunhuzljjjkzbx`, PostgreSQL 17.6.
 2. Candidate migration plus fixtures ran in a single transaction ending in ROLLBACK:
    **49 checks passed**, including A/B isolation, removed professional, anonymous access,
    immutable profile email, forged display email, confirmed Auth lookup and event grants.
-3. The revocation test keeps the same request JWT subject before and after removal.
-   This proves database authorization with unchanged identity claims, not a complete
-   browser sign-in/session-refresh test. A real signed-JWT HTTP regression is still needed.
+3. The SQL revocation test keeps the same request JWT subject before and after removal.
+   Subsequently, `scripts/security-session-test.mjs` passed **11 HTTP checks** with two
+   temporary Auth accounts: real password login and onboarding, A/B isolation, forbidden
+   writes, membership deletion and reuse of the exact previously issued signed JWT.
+   That JWT immediately lost schedule reads, professional reads, helper access and block
+   deletion rights. Both temporary organizations and Auth users were removed afterward.
+   Admin credentials were used only for fixture lifecycle, never authorization assertions.
 4. **10 existing Node tests passed**; TypeScript (`--noEmit --incremental false`),
    ESLint and `git diff --check` passed.
 5. Follow-up database query found **0 persisted audit fixture organizations**,
    **0 inconsistent profile/Auth emails**, and confirmed the old policy still exists
    because the candidate execution was rolled back.
+6. Permanent application via `scripts/apply-security-phase1.ps1 -ConfirmApply` preserved
+   all **11 historical ledger entries**, recording only `20260925230540` atomically.
+   The **49 SQL checks passed again against the applied schema**, without candidate DDL.
+7. Security advisors ran: callable SECURITY DEFINER APIs require the documented explicit
+   authorization checks (do not remove needed grants merely to silence warnings).
+   Remaining external findings include leaked-password protection disabled and
+   `btree_gist` in public; assess these in hardening, preserving the exclusion constraint.
 
 Commands:
 
@@ -53,7 +64,7 @@ It always rolls back its randomly named fixtures. Do not test RLS as service_rol
 A logical snapshot of application data, Auth users/identities, functions, policies,
 constraints, ACLs, columns, triggers and migration ledger was saved at:
 
-`C:\Users\misael\AppData\Local\AgendaPro\SecurityBackups\sao-paulo-20260926-154424.dpapi`
+`C:\Users\misael\AppData\Local\AgendaPro\SecurityBackups\sao-paulo-20260926-160406.dpapi`
 
 It is protected by Windows DPAPI for the current Windows user. Encryption/decryption
 round-trip was verified. This is NOT a complete Supabase physical backup and has NOT
@@ -75,20 +86,20 @@ exist, consistent with the earlier manual setup. Do NOT mark the existing entrie
 reverted, replay initial migrations, use `--include-all`, or rename old applied files
 just to silence the CLI. No historical migration/ledger entry was changed here.
 
-Safe proposed deployment route: apply only the NEW reviewed migration and record its
-new version atomically, preserving the old ledger. This must be deliberate and followed
-by the same regression suite; do not publish the application action before its RPC exists.
+Deployment route used: apply only the NEW reviewed migration and record its
+new version atomically, preserving the old ledger. The post-application suite passed.
+The new admin action is committed in `f65eee3`; it is not yet published to Vercel.
 Ordinary `db push` remains blocked until the historic baseline is reconciled separately.
 
 ### Remaining work
 
-- Decide/execute the safe, isolated migration application path without rewriting history.
-- Run signed-JWT HTTP revocation regression and post-application SQL checks.
+- Publish the matching admin application action with the reviewed application release.
 - Phase 2: schedule integrity, snapshots, recurrence, series FK and concurrency.
 - Phase 3: redirect, headers, private links, inputs and controlled errors.
 - Phase 4: targeted dependency update and full build checks.
 - Phase 5: abuse protection covering direct RPC, not just Vercel.
 - Phase 6: audit logs, privacy, environment separation and operational checklist.
 
-No phase beyond Phase 1 has been implemented. Production still needs the security
-fixes; do not interpret candidate tests as a production remediation or go-live approval.
+No phase beyond Phase 1 has been implemented. São Paulo now has Phase 1 database
+protections; remaining phases and application deployment are still outstanding.
+This is not go-live approval and not a completed frontend security review.
