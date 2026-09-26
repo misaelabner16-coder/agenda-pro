@@ -100,6 +100,33 @@ Ordinary `db push` remains blocked until the historic baseline is reconciled sep
 - Phase 5: abuse protection covering direct RPC, not just Vercel.
 - Phase 6: audit logs, privacy, environment separation and operational checklist.
 
-No phase beyond Phase 1 has been implemented. São Paulo now has Phase 1 database
-protections; remaining phases and application deployment are still outstanding.
-This is not go-live approval and not a completed frontend security review.
+## Phase 2: booking integrity
+
+Migration `20260926191023_security_phase2_booking_integrity.sql` applied to São Paulo
+after rollback-only regression validation, preserving all 12 prior ledger entries.
+Pre-application encrypted snapshot: `sao-paulo-20260926-161745.dpapi` in the directory above.
+
+- B1: shared internal availability calculation uses the reservation's original duration
+  and professional when rescheduling; the UI now calls a token-authorized availability
+  endpoint. Price/duration/name snapshots remain unchanged. Service edits cannot cause
+  a shorter availability check followed by a longer reservation crossing closing time.
+- B3: public booking reuses the normalized-phone customer without overwriting CRM name;
+  submitted name is retained in the reservation snapshot only.
+- B4: cancellation, rescheduling and series cancellation acquire locks in the same
+  professional-before-row order and re-read status. Duplicate cancellation cannot
+  generate duplicate transition logs.
+- B5: composite tenant/series FK; non-null snapshot duration and price checks.
+- Recurrence: professional lock plus availability recheck in the internal writer;
+  explicit null-input checks and whole-transaction rollback on any conflicting occurrence.
+- Existing professional-level exclusion constraint retained, with cancellation logical.
+- A5/antiabuse is **not resolved by integrity checks**; remains Phase 5.
+
+Evidence: **49 Phase 1 + 28 Phase 2 SQL checks passed after application**, with rollback.
+The extended signed-session HTTP test passed **19 checks**, including two truly concurrent
+anonymous direct-RPC bookings (one success, one `23P01`), one customer/booking afterward,
+simultaneous cancellation (one success, one final-state rejection, one audit entry), and
+another professional allowed in the same unit/time. Temporary fixtures were removed.
+TypeScript and ESLint passed. The reschedule UI/route changes are not deployed yet.
+
+Phases 3–6 and application deployment are outstanding. This is not go-live approval
+and not a completed frontend security review.

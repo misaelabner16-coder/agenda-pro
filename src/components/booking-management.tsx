@@ -23,11 +23,11 @@ export function BookingManagement({ slug, token, serviceId, timeZone, canCancel,
   useEffect(() => {
     if (state !== "reschedule") return;
     const controller = new AbortController();
-    fetch(`/api/public/${encodeURIComponent(slug)}/availability?service_id=${encodeURIComponent(serviceId)}&date=${date}`, { signal: controller.signal })
+    fetch(`/api/public/${encodeURIComponent(slug)}/agendamento/${encodeURIComponent(token)}/reschedule?date=${date}`, { signal: controller.signal, cache: "no-store" })
       .then(async (response) => { const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body.error ?? "Não foi possível carregar horários."); setSlotResponse({ key: requestKey, slots: body.slots ?? [] }); })
       .catch((reason) => { if (reason.name !== "AbortError") setSlotError({ key: requestKey, message: reason instanceof Error ? reason.message : "Não foi possível carregar horários." }); });
     return () => controller.abort();
-  }, [date, requestKey, serviceId, slug, state]);
+  }, [date, requestKey, slug, state, token]);
 
   async function cancel() {
     if (cancellationInFlight.current) return;

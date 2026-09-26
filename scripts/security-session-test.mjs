@@ -105,6 +105,59 @@ try {
   check('Old JWT loses schedule RPC authorization', helper.status === 200 && helper.data === false);
   const removeBlock = await rest(a.token, `calendar_events?organization_id=eq.${a.organization_id}`, 'DELETE');
   check('Old JWT cannot delete its former blocks', removeBlock.status === 200 && removeBlock.data?.length === 0);
+  if (process.argv.includes('--phase2')) {
+    const service = randomUUID();
+    const secondProfessional = randomUUID();
+    const day = sql(`select (current_date+40)::text as day;`)[0].day;
+    assert.match(day, /^\d{4}-\d{2}-\d{2}$/);
+    sql(`begin;
+      insert into public.services(id,organization_id,name,duration_minutes,price_cents)
+        values(${uuid(service)},${uuid(b.organization_id)},'Concurrency fixture',60,2500);
+      insert into public.professional_services(organization_id,professional_id,service_id)
+        values(${uuid(b.organization_id)},${uuid(b.professional_id)},${uuid(service)});
+      insert into public.location_hours(organization_id,location_id,week_day,start_time,end_time)
+        select ${uuid(b.organization_id)},${uuid(b.location_id)},d,'09:00','12:00' from generate_series(0,6) d;
+      insert into public.professional_hours(organization_id,location_id,professional_id,week_day,start_time,end_time)
+        select ${uuid(b.organization_id)},${uuid(b.location_id)},${uuid(b.professional_id)},d,'09:00','12:00' from generate_series(0,6) d;
+      insert into public.professionals(id,organization_id,display_name)
+        values(${uuid(secondProfessional)},${uuid(b.organization_id)},'Second concurrency fixture');
+      insert into public.location_professionals(organization_id,location_id,professional_id)
+        values(${uuid(b.organization_id)},${uuid(b.location_id)},${uuid(secondProfessional)});
+      commit; select true as ready;`);
+    const anonymous = keys.find(k => k.name === 'anon')?.api_key;
+    if (!anonymous) throw new Error('Anonymous JWT unavailable for direct RPC integration test');
+    const publicRpc = (name, body) => rest(anonymous, `rpc/${name}`, 'POST', body);
+    const makeBooking = () => publicRpc('book_public_appointment_with_management', {
+      p_slug: b.slug, p_service_id: service, p_starts_at: `${day}T09:00:00-03:00`,
+      p_customer_name: 'Race fixture', p_customer_phone: '11900000008',
+    });
+    const race = await Promise.all([makeBooking(), makeBooking()]);
+    check('Concurrent public booking: exactly one succeeds', race.filter(r => r.status === 200).length === 1);
+    check('Concurrent public booking: loser is controlled overlap error', race.filter(r => r.data?.code === '23P01').length === 1);
+    const booking = race.find(r => r.status === 200).data[0];
+    uuid(booking.event_id);
+    const counts = sql(`select (select count(*) from public.calendar_events where organization_id=${uuid(b.organization_id)} and event_type='booking') as bookings,
+      (select count(*) from public.customers where organization_id=${uuid(b.organization_id)}) as customers;`)[0];
+    check('Concurrent loser leaves no duplicate booking/customer', Number(counts.bookings) === 1 && Number(counts.customers) === 1);
+    sql(`begin;
+      insert into public.calendar_events(organization_id,location_id,professional_id,event_type,starts_at,ends_at,
+        service_id,service_name,service_duration_minutes,service_price_cents,customer_id,customer_name,customer_phone)
+      select organization_id,location_id,${uuid(secondProfessional)},event_type,starts_at,ends_at,
+        service_id,service_name,service_duration_minutes,service_price_cents,customer_id,customer_name,customer_phone
+      from public.calendar_events where id=${uuid(booking.event_id)};
+      commit; select true as different_professional_allowed;`);
+    check('Different professional can attend same unit/time', true);
+    const cancelBody = { p_slug: b.slug, p_management_token: booking.management_token, p_reason: null };
+    const cancellationRace = await Promise.all([
+      publicRpc('cancel_public_booking', cancelBody), publicRpc('cancel_public_booking', cancelBody),
+    ]);
+    check('Concurrent cancellation: exactly one succeeds', cancellationRace.filter(r => r.status === 204 || r.status === 200).length === 1);
+    check('Concurrent cancellation: second sees final state', cancellationRace.filter(r => r.data?.code === 'P0002').length === 1);
+    const audit = sql(`select count(*) as total from public.audit_logs where entity_id=${uuid(booking.event_id)} and action='booking.cancelled_by_customer';`)[0];
+    check('Concurrent cancellation writes exactly one audit entry', Number(audit.total) === 1);
+    const freed = await publicRpc('get_available_slots', { p_slug: b.slug, p_service_id: service, p_date: day });
+    check('Cancelled slot free despite other professional booking', freed.status === 200 && freed.data.some(s => new Date(s.starts_at).valueOf() === new Date(`${day}T09:00:00-03:00`).valueOf()));
+  }
 } catch (error) {
   // Never serialize SDK responses, sessions or credentials.
   console.error(error instanceof Error ? error.message : 'Integration test failed');
@@ -120,6 +173,8 @@ try {
             raise exception 'Fixture cleanup identity mismatch';
           end if;
         end $$;
+        delete from public.calendar_events where organization_id=${org};
+        delete from public.appointment_series where organization_id=${org};
         delete from public.organizations where id=${org} and slug='${workspace.slug}';
         commit; select true as fixture_organization_removed;`);
     }
