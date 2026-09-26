@@ -22,9 +22,12 @@ export async function addOrganizationAccess(_state: ActionState, formData: FormD
   const role = text(formData, "role");
   if (!/^\S+@\S+\.\S+$/.test(email) || !organizationId || !["owner", "manager", "receptionist", "professional"].includes(role)) return { error: "Revise o e-mail, a empresa e a função." };
   const supabase = await requirePlatformAdmin();
-  const { data: profile } = await supabase.from("profiles").select("id").ilike("email", email).maybeSingle();
-  if (!profile) return { error: "A pessoa precisa criar uma conta antes de receber acesso." };
-  const { error } = await supabase.from("organization_memberships").upsert({ organization_id: organizationId, user_id: profile.id, role, is_active: true }, { onConflict: "organization_id,user_id" });
+  const { error } = await supabase.rpc("grant_organization_access", {
+    p_organization_id: organizationId,
+    p_email: email,
+    p_role: role,
+  });
+  if (error?.code === "P0002") return { error: "Confira a empresa e peça à pessoa para cadastrar e confirmar o e-mail antes de receber acesso." };
   if (error) return { error: "Não foi possível conceder o acesso." };
   revalidatePath("/admin");
   return { success: "Acesso concedido." };
