@@ -15,7 +15,7 @@ export default function Home() {
       <header className="relative mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-5 sm:px-8 sm:py-6">
         <Link className="flex shrink-0 items-center gap-2.5 text-lg font-bold tracking-tight" href="/">
           <span className="grid size-9 place-items-center rounded-xl border border-gold-300/60 bg-white/10 text-sm text-gold-300">A</span>
-          Agenda Pro
+          Ammali
         </Link>
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           <Link className="rounded-xl border border-white/35 bg-white/5 px-3.5 py-2.5 text-sm font-semibold text-white hover:border-gold-300 hover:bg-white/10 sm:px-5" href="/login">Entrar</Link>

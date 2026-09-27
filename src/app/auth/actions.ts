@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { passwordValue, validEmail } from "@/lib/web-security";
 import { validatedSiteOrigin } from "@/lib/environment-security";
+import { changeRecoveredPassword, requestRecovery } from "@/lib/password-recovery";
 
 function value(formData: FormData, key: string) { return String(formData.get(key) ?? "").trim(); }
 
@@ -68,4 +69,19 @@ export async function signOut() {
   await supabase.auth.signOut();
   revalidatePath("/", "layout");
   redirect("/");
+}
+
+export async function forgotPassword(formData: FormData) {
+  const supabase = await createSupabaseServerClient();
+  const origin = validatedSiteOrigin(process.env.NEXT_PUBLIC_SITE_URL, process.env.VERCEL_ENV === "production");
+  const result = await requestRecovery(supabase.auth, value(formData, "email"), origin);
+  redirect(`/recuperar-senha?${result.error ? "erro" : "mensagem"}=${encodeURIComponent(result.error ?? result.message!)}`);
+}
+
+export async function resetPassword(formData: FormData) {
+  const supabase = await createSupabaseServerClient();
+  const result = await changeRecoveredPassword(supabase.auth, formData);
+  if (result.error) redirect(`${result.expired ? "/recuperar-senha" : "/redefinir-senha"}?erro=${encodeURIComponent(result.error)}`);
+  revalidatePath("/", "layout");
+  redirect(`/login?mensagem=${encodeURIComponent("Senha alterada. Entre com sua nova senha.")}`);
 }

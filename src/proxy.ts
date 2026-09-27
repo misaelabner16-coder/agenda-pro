@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/supabase/database";
 import { browserSecurityHeaders, privateResponseHeaders } from "@/lib/web-security";
+import { canonicalAuthDestination } from "@/lib/environment-security";
 
 export async function proxy(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -18,10 +19,18 @@ export async function proxy(request: NextRequest) {
   let response = nextResponse();
   function secureResponse() {
     for (const [name, value] of Object.entries(securityHeaders)) response.headers.set(name, value);
-    if (/^\/(api|auth|dashboard|admin)(\/|$)/.test(request.nextUrl.pathname) || request.nextUrl.pathname.includes("/agendamento/")) {
+    if (/^\/(api|auth|dashboard|admin|recuperar-senha|redefinir-senha)(\/|$)/.test(request.nextUrl.pathname) || request.nextUrl.pathname.includes("/agendamento/")) {
       for (const [name, value] of Object.entries(privateResponseHeaders)) response.headers.set(name, value);
     }
     return response;
+  }
+  const canonical = request.method === "GET"
+    ? canonicalAuthDestination(request.url, process.env.NEXT_PUBLIC_SITE_URL, process.env.VERCEL_ENV)
+    : null;
+  if (canonical) {
+    response = NextResponse.redirect(canonical, 307);
+    response.headers.set("Cache-Control", "private, no-store");
+    return secureResponse();
   }
   if (!url || !key) return secureResponse();
 

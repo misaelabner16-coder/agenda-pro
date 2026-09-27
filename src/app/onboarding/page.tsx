@@ -18,7 +18,7 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
     <main className="relative grid min-h-screen place-items-center overflow-hidden bg-stone-100 px-4 py-10">
       <div aria-hidden="true" className="pointer-events-none absolute -top-64 left-1/2 h-96 w-[48rem] -translate-x-1/2 rounded-full bg-emerald-200/60 blur-3xl" />
       <section className="premium-surface relative w-full max-w-xl rounded-3xl bg-white p-6 sm:p-8">
-        <Link href="/" className="inline-flex items-center gap-2.5 text-lg font-bold"><span className="grid size-9 place-items-center rounded-xl bg-emerald-950 text-sm text-gold-300">A</span>Agenda Pro</Link>
+        <Link href="/" className="inline-flex items-center gap-2.5 text-lg font-bold"><span className="grid size-9 place-items-center rounded-xl bg-emerald-950 text-sm text-gold-300">A</span>Ammali</Link>
         <p className="mt-8 text-xs font-bold uppercase tracking-[.18em] text-emerald-700">Primeiro passo</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight">Vamos criar sua agenda.</h1>
         <p className="mt-2 leading-7 text-stone-600">Essa conta ainda não está vinculada a uma agenda. Crie uma nova abaixo ou entre com a conta que já administra seu estabelecimento.</p>

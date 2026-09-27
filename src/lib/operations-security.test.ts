@@ -3,7 +3,19 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { assertEnvironmentDatabase, validatedSiteOrigin } from "./environment-security.ts";
+import { assertEnvironmentDatabase, validatedSiteOrigin, canonicalAuthDestination } from "./environment-security.ts";
+
+test("domain transition canonicalizes auth entry only, preserving PKCE callbacks and local/preview", () => {
+  const origin = "https://www.ammaligestao.com";
+  assert.equal(canonicalAuthDestination("https://agenda-pro-lovat.vercel.app/recuperar-senha?next=https://evil.example", origin, "production"), `${origin}/recuperar-senha`);
+  assert.equal(canonicalAuthDestination(`${origin}/login`, origin, "production"), null);
+  for (const path of ["/auth/confirm?code=private", "/redefinir-senha", "/p/barbearia-misael"]) {
+    assert.equal(canonicalAuthDestination(`https://agenda-pro-lovat.vercel.app${path}`, origin, "production"), null);
+  }
+  assert.equal(canonicalAuthDestination("http://localhost:3102/login", origin, "production"), null);
+  assert.equal(canonicalAuthDestination("https://preview.vercel.app/login", origin, "preview"), null);
+  assert.equal(canonicalAuthDestination("https://agenda-pro-lovat.vercel.app/login", "https://evil.example", "production"), null);
+});
 
 test("retired Canada database is rejected in every environment", () => {
   for (const env of [undefined, "production", "preview", "development"]) assert.throws(() => assertEnvironmentDatabase(env, "https://tjxhohypuqjnlnbgstvy.supabase.co", true));

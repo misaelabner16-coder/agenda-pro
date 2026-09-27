@@ -16,3 +16,14 @@ export function validatedSiteOrigin(value: string | undefined, production: boole
       || (production && parsed.protocol !== "https:")) throw new Error("Configure a URL pública da aplicação, não a URL do Supabase.");
   return parsed.origin;
 }
+
+export function canonicalAuthDestination(requestUrl: string, siteOrigin: string | undefined, environment?: string) {
+  if (environment !== "production" || !siteOrigin) return null;
+  const request = new URL(requestUrl);
+  const allowedHosts = ["agenda-pro-lovat.vercel.app", "www.ammaligestao.com", "ammaligestao.com"];
+  // Leave old callback URLs on their original host: PKCE cookies cannot cross domains.
+  if (!allowedHosts.includes(request.hostname) || !["/", "/login", "/cadastro", "/recuperar-senha"].includes(request.pathname)) return null;
+  const canonical = validatedSiteOrigin(siteOrigin, true);
+  if (!allowedHosts.includes(new URL(canonical).hostname) || request.origin === canonical) return null;
+  return new URL(request.pathname, canonical).href; // Do not forward arbitrary query parameters.
+}

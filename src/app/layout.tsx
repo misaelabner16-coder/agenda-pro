@@ -4,7 +4,7 @@ import "./globals.css";
 import { ToastProvider } from "@/components/toast-provider";
 
 export const metadata: Metadata = {
-  title: { default: "Agenda Pro", template: "%s | Agenda Pro" },
+  title: { default: "Ammali", template: "%s | Ammali" },
   description: "Agendamento online simples para pequenos profissionais.",
 };
 
