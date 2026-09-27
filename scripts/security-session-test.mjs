@@ -3,7 +3,7 @@
 // Every authorization assertion goes through HTTP with a normal signed user JWT.
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { writeFileSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -41,6 +41,8 @@ const admin = createClient(url, adminKey, options);
 const users = [];
 const workspaces = [];
 const passed = [];
+const gatewayMode = process.argv.includes('--gateway');
+const rateDigests = [];
 const uuid = value => {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) throw new Error('Invalid fixture UUID');
   return `'${value}'`;
@@ -105,7 +107,7 @@ try {
   check('Old JWT loses schedule RPC authorization', helper.status === 200 && helper.data === false);
   const removeBlock = await rest(a.token, `calendar_events?organization_id=eq.${a.organization_id}`, 'DELETE');
   check('Old JWT cannot delete its former blocks', removeBlock.status === 200 && removeBlock.data?.length === 0);
-  if (process.argv.includes('--phase2')) {
+  if (process.argv.includes('--phase2') || gatewayMode) {
     const service = randomUUID();
     const secondProfessional = randomUUID();
     const day = sql(`select (current_date+40)::text as day;`)[0].day;
@@ -127,10 +129,20 @@ try {
     const anonymous = keys.find(k => k.name === 'anon')?.api_key;
     if (!anonymous) throw new Error('Anonymous JWT unavailable for direct RPC integration test');
     const publicRpc = (name, body) => rest(anonymous, `rpc/${name}`, 'POST', body);
-    const makeBooking = () => publicRpc('book_public_appointment_with_management', {
+    const gatewayIp = randomBytes(32).toString('hex');
+    const gatewayPhone = randomBytes(32).toString('hex');
+    rateDigests.push(gatewayIp, gatewayPhone);
+    const bookingArgs = {
       p_slug: b.slug, p_service_id: service, p_starts_at: `${day}T09:00:00-03:00`,
       p_customer_name: 'Race fixture', p_customer_phone: '11900000008',
-    });
+    };
+    const makeBooking = async () => {
+      if (!gatewayMode) return publicRpc('book_public_appointment_with_management', bookingArgs);
+      // service_role is the actual authorized gateway role, not an RLS-test shortcut.
+      const result = await admin.rpc('book_public_appointment_guarded', { ...bookingArgs, p_client_digest: gatewayIp, p_phone_digest: gatewayPhone });
+      if (result.error) throw new Error('Guarded RPC transport failed');
+      return result.data.error_code ? { status: 409, data: { code: result.data.error_code } } : { status: 200, data: [result.data] };
+    };
     const race = await Promise.all([makeBooking(), makeBooking()]);
     check('Concurrent public booking: exactly one succeeds', race.filter(r => r.status === 200).length === 1);
     check('Concurrent public booking: loser is controlled overlap error', race.filter(r => r.data?.code === '23P01').length === 1);
@@ -157,6 +169,43 @@ try {
     check('Concurrent cancellation writes exactly one audit entry', Number(audit.total) === 1);
     const freed = await publicRpc('get_available_slots', { p_slug: b.slug, p_service_id: service, p_date: day });
     check('Cancelled slot free despite other professional booking', freed.status === 200 && freed.data.some(s => new Date(s.starts_at).valueOf() === new Date(`${day}T09:00:00-03:00`).valueOf()));
+    if (gatewayMode) {
+      const denied = await publicRpc('book_public_appointment_guarded', { ...bookingArgs, p_client_digest: gatewayIp, p_phone_digest: gatewayPhone });
+      check('Anonymous cannot forge gateway digests via direct RPC', denied.status === 401 || denied.status === 403);
+      const burstIp = randomBytes(32).toString('hex');
+      const burstPhone = randomBytes(32).toString('hex');
+      rateDigests.push(burstIp, burstPhone);
+      const burst = await Promise.all(Array.from({ length: 12 }, () => admin.rpc('book_public_appointment_guarded', {
+        ...bookingArgs, p_slug: `missing-${randomUUID()}`, p_client_digest: burstIp, p_phone_digest: burstPhone,
+      })));
+      check('Atomic quotas: exactly ten concurrent invalid attempts admitted', burst.filter(r => r.data?.error_code === 'P0002').length === 10);
+      check('Atomic quotas: remaining concurrent attempts rate limited', burst.filter(r => r.data?.error_code === 'RATE_LIMITED').length === 2);
+      const base = process.env.SECURITY_TEST_APP_URL;
+      if (base) {
+        if (!['localhost', '127.0.0.1'].includes(new URL(base).hostname)) throw new Error('App flow restricted to local production build');
+        // Matches server's explicit local-only test identity; never sent in request JSON.
+        rateDigests.push(createHmac('sha256', adminKey).update('booking-ip:local-security-test').digest('hex'));
+        rateDigests.push(createHmac('sha256', adminKey).update(`booking-phone:${b.slug}:11900000009`).digest('hex'));
+        const call = async (path, body) => {
+          const response = await fetch(`${base}${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+          return { status: response.status, data: await response.json() };
+        };
+        const response = await call(`/api/public/${b.slug}/book`, { service_id: service, starts_at: `${day}T09:00:00-03:00`, customer_name: 'App flow fixture', customer_phone: '11900000009' });
+        check('App API creates booking through guarded RPC', response.status === 201 && typeof response.data.management_url === 'string');
+        const management = response.data.management_url;
+        const privatePage = await fetch(`${base}${management}`);
+        check('Private management page renders without token cache', privatePage.status === 200 && /no-store/.test(privatePage.headers.get('cache-control')));
+        const apiPath = management.replace('/p/', '/api/public/');
+        const moved = await call(`${apiPath}/reschedule`, { starts_at: `${day}T10:00:00-03:00` });
+        check('App API reschedules token-authorized booking', moved.status === 200);
+        const original = await publicRpc('get_available_slots', { p_slug: b.slug, p_service_id: service, p_date: day });
+        check('App reschedule releases old slot', original.data.some(s => new Date(s.starts_at).valueOf() === new Date(`${day}T09:00:00-03:00`).valueOf()));
+        const cancelled = await call(`${apiPath}/cancel`, { reason: 'Security test cleanup' });
+        check('App API cancels token-authorized booking', cancelled.status === 200);
+        const released = await publicRpc('get_available_slots', { p_slug: b.slug, p_service_id: service, p_date: day });
+        check('App cancellation releases moved slot', released.data.some(s => new Date(s.starts_at).valueOf() === new Date(`${day}T10:00:00-03:00`).valueOf()));
+      }
+    }
   }
 } catch (error) {
   // Never serialize SDK responses, sessions or credentials.
@@ -164,6 +213,10 @@ try {
   process.exitCode = 1;
 } finally {
   try {
+    if (gatewayMode && rateDigests.length) {
+      if (!rateDigests.every(d => /^[a-f0-9]{64}$/.test(d))) throw new Error('Invalid fixture quota digest');
+      sql(`delete from public.booking_rate_limits where split_part(bucket,':',2) in (${rateDigests.map(d => `'${d}'`).join(',')}); select true as fixture_quotas_removed;`);
+    }
     for (const workspace of workspaces) {
       const org = uuid(workspace.organization_id);
       // Exact generated ID AND unique slug. Never deletes a pre-existing tenant.

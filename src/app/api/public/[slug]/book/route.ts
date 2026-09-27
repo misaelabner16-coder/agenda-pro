@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createBookingGateway } from "@/lib/supabase/booking-gateway";
 import { PublicInputError, readPublicJson, validInstant, validSlug, validUuid, privateResponseHeaders } from "@/lib/web-security";
 
 export async function POST(request: Request, { params }: { params: Promise<{ slug: string }> }) {
@@ -14,8 +14,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
   const name = typeof body?.customer_name === "string" ? body.customer_name.trim() : "";
   const phone = typeof body?.customer_phone === "string" ? body.customer_phone.replace(/\D/g, "") : "";
   if (!validSlug(slug) || !validUuid(serviceId) || !validInstant(startsAt) || name.length < 2 || name.length > 100 || !/^\d{8,15}$/.test(phone)) return NextResponse.json({ error: "Revise o nome, telefone e horário informados." }, { status: 400 });
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.rpc("book_public_appointment_with_management", { p_slug: slug, p_service_id: serviceId, p_starts_at: startsAt, p_customer_name: name, p_customer_phone: phone });
+  let gateway: ReturnType<typeof createBookingGateway>;
+  try { gateway = createBookingGateway(request.headers, slug, phone); }
+  catch {
+    console.error("[booking] Gateway de reserva não configurado.");
+    return NextResponse.json({ error: "Agendamento temporariamente indisponível. Tente novamente em instantes." }, { status: 503, headers: privateResponseHeaders });
+  }
+  const { data, error: rpcError } = await gateway.client.rpc("book_public_appointment_guarded", { p_slug: slug, p_service_id: serviceId, p_starts_at: startsAt, p_customer_name: name, p_customer_phone: phone, p_client_digest: gateway.clientDigest, p_phone_digest: gateway.phoneDigest });
+  const row = data as { management_token?: string; error_code?: string; retry_after?: number } | null;
+  const error = rpcError || (row?.error_code ? { code: row.error_code } : null);
+  if (error?.code === "RATE_LIMITED") return NextResponse.json({ error: "Muitas tentativas de agendamento. Aguarde antes de tentar novamente." }, { status: 429, headers: { ...privateResponseHeaders, "Retry-After": String(row?.retry_after || 60) } });
   if (error?.code === "23P01") return NextResponse.json({ error: "Esse horário acabou de ser reservado. Escolha outro horário." }, { status: 409 });
   if (error?.code === "P0002") return NextResponse.json({ error: "A agenda, o serviço ou o profissional não está mais disponível." }, { status: 409 });
   if (error?.code === "22023") return NextResponse.json({ error: "Revise os dados informados." }, { status: 400 });
@@ -23,7 +31,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
     console.error("[booking] Falha ao criar agendamento.", { code: error.code });
     return NextResponse.json({ error: "Não foi possível confirmar agora. Tente novamente em alguns instantes." }, { status: 503 });
   }
-  const row = Array.isArray(data) ? data[0] as { management_token?: string } | undefined : undefined;
   if (!row?.management_token) return NextResponse.json({ error: "Não foi possível criar o link de gerenciamento." }, { status: 500 });
   return NextResponse.json({ ok: true, management_url: `/p/${encodeURIComponent(slug)}/agendamento/${encodeURIComponent(row.management_token)}` }, { status: 201, headers: privateResponseHeaders });
 }

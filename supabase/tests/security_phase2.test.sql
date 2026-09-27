@@ -84,11 +84,11 @@ grant all on booking_test to anon,authenticated;
 create function pg_temp.booking_time(p_time time,p_days integer default 30) returns timestamptz language sql as $$
  select ((current_date+p_days)+p_time) at time zone 'America/Sao_Paulo';
 $$;
-set local role anon;
+-- Fixture creation uses the server-only writer after phase 5 retires direct access.
+-- Anonymous authorization and bypass denial are exercised in security_phase5.test.sql.
 insert into booking_test
 select * from public.book_public_appointment_with_management('audit-'||pg_temp.sid('loc_a'),
   pg_temp.sid('service_a'),pg_temp.booking_time('09:00'),'Untrusted public name','(11) 90000-0001');
-reset role;
 select pg_temp.check_security('Public booking cannot overwrite CRM name',
   (select name='Customer A' from public.customers where id=pg_temp.sid('customer_a')));
 select pg_temp.check_security('Submitted name retained only in booking snapshot',

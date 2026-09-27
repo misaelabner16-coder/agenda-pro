@@ -173,4 +173,53 @@ PNPM 11 verification uses the same CI/store settings as installation; no verific
 
 Vendor advisory: https://github.com/vercel/next.js/security/advisories/GHSA-vcvr-r3jv-pc5j
 
-Phases 5–6 and application deployment remain outstanding. This is not go-live approval.
+## Phase 5: database-backed booking antiabuse
+
+Prepared gateway migration `20260927002836_security_phase5_booking_gateway.sql` is
+**applied to São Paulo** (14 ledger entries, old entries preserved). Encrypted preflight
+snapshot: `sao-paulo-20260927-075046.dpapi`. A CLI update notice initially interrupted
+JSON parsing; the operation stopped before DDL, parsing was corrected, then retried.
+
+The new server-only booking client invokes one privileged guarded RPC. Credentials are
+not passed to components or user cookies. Trusted Vercel IP is HMAC-hashed; IPv6 /64
+grouping avoids interface-address rotation. Shared atomic database limits: 10 attempts
+per IP/minute, 100 per IP/day, 10 per establishment/phone/hour. Failed booking attempts
+also consume quota, without partial bookings. Expired counter cleanup is bounded.
+No new service, Docker, Redis or client account was introduced. Phone identity is still
+unverified; distributed low-rate abuse remains a risk (consider CAPTCHA/verification
+if observed). This is rate limiting, not a guarantee that all automation is stopped.
+
+**Activation migration `20260927002839_security_phase5_retire_direct_booking.sql` is
+NOT applied.** It revokes both old direct writers from anon/authenticated/service_role.
+The guarded function retains the only service_role entry point and invokes the writers
+internally. Applying retirement before the matching application release would break
+the current production booking route. Do not apply all pending migrations blindly.
+
+Evidence: **22 unit tests**, lint/TypeScript/build, **19 SQL checks** for limits and
+all direct bypass paths under anon/authenticated (candidate retirement + rollback),
+**28 signed-session/HTTP checks**, **16 browser checks**. The HTTP run proved the
+actual new API creates, displays, reschedules and cancels a booking and frees old slots.
+Two concurrent bookings produced one success; 12 concurrent invalid gateway requests
+produced exactly 10 attempts and 2 rate-limit responses. All random fixtures removed.
+The Phase 2 fixture setup now invokes the internal writer as setup only; its anonymous
+reschedule/cancel assertions remain unchanged. Phase 5 explicitly tests writer grants.
+
+### Safe release order (requires Vercel configuration)
+
+1. In Vercel Agenda Pro > Settings > Environment Variables, add `SUPABASE_SECRET_KEY`
+   as a **Secret**, scoped to **Production only**, from the São Paulo project's secret
+   API key. Never use a NEXT_PUBLIC prefix, never paste the value in chat. Do not copy
+   this key to Preview/Development. The legacy service_role key also works server-side;
+   the new secret key is preferred. `SECURITY_LOCAL_BOOKING_TEST` must remain unset there.
+2. Publish the reviewed app with the gateway (and remaining Phase 6 fixes), confirm a
+   controlled booking through the production website, and check the trusted IP header.
+3. Apply only the retirement migration, then prove direct anonymous/authenticated RPC
+   requests fail and the website booking still succeeds. No loosening grants to pass tests.
+4. Do not roll the app back to an anonymous-writer build after retirement. Roll forward
+   a gateway-compatible fix or temporarily stop new bookings; never restore the bypass.
+
+Vercel trusted header reference: https://vercel.com/docs/headers/request-headers#x-vercel-forwarded-for
+Supabase key reference: https://supabase.com/docs/guides/api/api-keys
+
+Phase 6, application deployment and retirement activation remain outstanding.
+This is not go-live approval.

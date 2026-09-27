@@ -1,6 +1,6 @@
 param(
   [Parameter(Mandatory=$true)][string]$SqlFile,
-  [string]$CandidateMigration,
+  [string[]]$CandidateMigration,
   [switch]$EncryptedSnapshot,
   [string]$CliPath = 'C:\Users\misael\AppData\Local\Temp\agenda-pro-supabase-cli-3771594b-4ce3-463b-814b-7c04b50499fb\supabase.exe'
 )
@@ -11,7 +11,7 @@ $sql = Get-Content -LiteralPath $SqlFile -Raw
 $temporaryQuery = $null
 try {
   if ($CandidateMigration) {
-    $candidate = Get-Content -LiteralPath $CandidateMigration -Raw
+    $candidate = ($CandidateMigration | ForEach-Object { Get-Content -LiteralPath $_ -Raw }) -join "`n"
     # Run proposed DDL and regression fixtures in ONE rollback-only transaction.
     $body = [regex]::Replace($candidate, '(?im)^\s*(begin|commit);\s*$', '')
     $testBody = [regex]::Replace($sql, '(?im)^\s*(begin|rollback);\s*$', '')
@@ -27,7 +27,11 @@ try {
   }
   $jsonStart = $raw.IndexOf('{')
   if ($jsonStart -lt 0) { throw 'SQL tool did not return JSON.' }
-  $response = $raw.Substring($jsonStart) | ConvertFrom-Json
+  # CLI upgrade notices may follow the JSON object; never echo snapshot contents.
+  $jsonEnd = $raw.LastIndexOf('}')
+  if ($jsonEnd -lt $jsonStart) { throw 'SQL tool returned incomplete JSON.' }
+  try { $response = $raw.Substring($jsonStart, $jsonEnd - $jsonStart + 1) | ConvertFrom-Json }
+  catch { throw 'SQL JSON could not be parsed; no snapshot or migration was accepted.' }
   if ($null -eq $response.rows) { throw 'SQL tool did not return rows.' }
   if ($EncryptedSnapshot) {
     $json = $response.rows | ConvertTo-Json -Depth 100 -Compress
