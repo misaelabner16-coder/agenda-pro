@@ -20,10 +20,12 @@ const publicKey = keys.find(k => k.type === 'publishable')?.api_key || keys.find
 const secretKey = keys.find(k => k.name === 'service_role')?.api_key;
 if (!publicKey || !secretKey) throw Error('Fixture credentials missing');
 const production = process.argv.includes('--production-smoke');
-const base = production ? 'https://agenda-pro-lovat.vercel.app' : 'http://localhost:3102';
+const productionBase = process.env.SECURITY_TEST_APP_URL || 'https://agenda-pro-lovat.vercel.app';
+if (production && !['https://agenda-pro-lovat.vercel.app', 'https://www.ammaligestao.com'].includes(productionBase)) throw Error('Production smoke requires an approved application URL');
+const base = production ? productionBase : 'http://localhost:3102';
 const env = { ...process.env, NODE_USE_SYSTEM_CA: '1', NEXT_TELEMETRY_DISABLED: '1', VERCEL_ENV: 'production',
   NEXT_PUBLIC_SUPABASE_URL: url, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: publicKey,
-  NEXT_PUBLIC_SITE_URL: 'https://agenda-pro-lovat.vercel.app' };
+  NEXT_PUBLIC_SITE_URL: productionBase };
 if (!production && process.argv.includes('--build')) {
   execFileSync(process.execPath, ['node_modules/next/dist/bin/next', 'build'], { env, stdio: 'inherit', timeout: 300000 });
 }

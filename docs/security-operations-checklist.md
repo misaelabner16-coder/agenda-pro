@@ -1,107 +1,54 @@
-# Security release: external checks still required
+# Publicação de segurança: verificações externas ainda necessárias
 
-This checklist does not assert that a dashboard option is enabled merely because code
-exists. Database: São Paulo `nuhxuhkunhuzljjjkzbx`. Public app URL unchanged.
+Este checklist não considera uma opção do painel habilitada apenas porque existe código relacionado a ela. Banco: São Paulo, projeto `nuhxuhkunhuzljjjkzbx`. A URL pública principal é `https://www.ammaligestao.com` desde a virada de 27/09/2026; o domínio Vercel anterior permanece como contingência.
 
-## Release procedure (completed 2026-09-27; retain for reference)
+## Acompanhamento manual de MFA — 27/09/2026
 
-Application commit `bb0a131` is live at the unchanged public URL, deployment
-`6Z6V8xsQiGHKxSQZUbrBu5mZr9D4`. The initial build rejected a Supabase URL incorrectly
-configured as `NEXT_PUBLIC_SITE_URL`; the operator corrected it and redeployed.
-The guarded Vercel booking flow passed before and after direct-writer retirement.
-Migration `20260927002839` is applied, preserving all 15 preceding ledger entries.
-Post-activation HTTP checks: 32 passed, including both old writers denied to anon
-and authenticated users. Browser checks: 16 passed, no normal runtime errors.
-Only generated test records were removed; existing data and Canada were untouched.
-The deployment/Supabase skills informed the staged release and post-change verification.
+- Supabase: ativação informada pelo usuário; segundo fator de reserva não verificado.
+- Vercel: painel mostrou 2FA ativo com autenticador TOTP cadastrado; usuário confirmou que guardou os códigos de recuperação.
+- GitHub: conclusão informada pelo usuário; sem verificação independente do painel.
+- AWS: captura de tela confirmou TOTP cadastrado no AWS Builder ID. A proteção de identidades raiz/IAM ou outros acessos administrativos da AWS, quando existirem, não foi verificada nesta sessão.
+- A proteção das contas individuais não comprova revisão dos demais membros, sessões, integrações ou exigência de MFA para a equipe inteira.
 
-1. Supabase São Paulo > Project Settings > API Keys: obtain a **secret** key for this
-   project. In Vercel Agenda Pro > Settings > Environment Variables, add
-   `SUPABASE_SECRET_KEY`, type **Secret**, scope **Production only**. Never put it in
-   `NEXT_PUBLIC_*`, Git, screenshots, chat or Preview. No credential was persisted by
-   the test scripts: the local test server received it only in its process environment.
-2. Confirm Production variables: `NEXT_PUBLIC_SUPABASE_URL` points to São Paulo,
-   public/publishable key belongs to the same project, `NEXT_PUBLIC_SITE_URL` is
-   `https://agenda-pro-lovat.vercel.app`. No `SECURITY_LOCAL_BOOKING_TEST` on Vercel.
-3. Preview must use a separate test project/key, never the production database. The
-   guard now intentionally blocks a Preview configured with production. A separate test
-   project has NOT been provisioned. The existing local `.env.local` was preserved,
-   but its retired Canadian target is now blocked. Replace it with test configuration;
-   temporary access to production for explicit tests requires
-   `ALLOW_PRODUCTION_DATABASE_FOR_TESTS=1` locally. Do not set `VERCEL_ENV=production`
-   to bypass this during normal development (our isolated production-build tests do
-   explicitly emulate that environment with credentials supplied in memory).
-4. Publish the gateway-compatible code; validate booking from the actual Vercel host.
-   Confirm `x-vercel-forwarded-for` reaches the function. Missing/invalid trusted IP or
-   missing server credential returns 503, never falls back to an unguarded writer.
-5. Only after that validation, apply `20260927002839_security_phase5_retire_direct_booking.sql`
-   and record its version without modifying old migration history. This step is now
-   complete. Both anonymous/authenticated direct calls were denied and website booking,
-   rescheduling and cancellation passed after activation. Do not replay the migration.
+## Procedimento de publicação — concluído em 27/09/2026, mantido para referência
 
-## Supabase dashboard
+O commit da aplicação `bb0a131` está publicado na URL pública existente, na implantação `6Z6V8xsQiGHKxSQZUbrBu5mZr9D4`. O primeiro build rejeitou uma URL do Supabase configurada incorretamente em `NEXT_PUBLIC_SITE_URL`; o operador corrigiu o valor e publicou novamente.
 
-- Authentication > Providers / Email: confirm email confirmation is required, password
-  policy and leaked-password protection. The security advisor reported leaked-password
-  protection disabled; availability may depend on plan. Do not weaken the setting to
-  silence an alert. Confirm Auth rate limits, SMTP sender and real delivery/confirmation.
-- Authentication > URL Configuration: production Site URL is the app, not the Supabase
-  API. Review redirect allowlist; prefer exact production callback URLs, no broad
-  attacker-controlled wildcard. Keep local callbacks out of production when unnecessary.
-- Organization/account security: MFA for Supabase/Vercel/GitHub administrators, least
-  privilege, review active sessions and integrations. Global app-admin membership must
-  be explicitly controlled; no automatic grants from mutable profile metadata.
-- Database backups: the local encrypted logical snapshots are a contingency, NOT a
-  tested full restore. Select an automated backup/retention policy and demonstrate a
-  restore to a separate project before real customer data. Storage/platform settings
-  are not in these snapshots. DPAPI recovery needs the original Windows account/profile.
-- Infrastructure: database currently reported PostgreSQL 17.6. Review available security
-  maintenance updates with Supabase; preserve/exercise the professional exclusion index
-  and follow provider reindex guidance when upgrading. No infrastructure upgrade was
-  performed. `btree_gist` in public was an advisor warning; moving it blindly could break
-  the scheduling constraint. Plan it separately with dependency checks.
-- Security Advisor: review remaining SECURITY DEFINER entries with explicit narrow grants
-  and function-level authorization. Their existence alone is not a reason to remove
-  required public RPCs or disable RLS.
+O fluxo protegido de reserva pela Vercel passou antes e depois da desativação das funções antigas de gravação direta. A migration `20260927002839` está aplicada, preservando todos os 15 registros anteriores do histórico. Após a ativação, **32 verificações HTTP passaram**, incluindo recusa das duas funções antigas para usuários anônimos e autenticados. **16 verificações de navegador passaram**, sem erros durante a navegação normal.
 
-## Vercel and GitHub
+Apenas registros gerados pelos testes foram removidos; os dados existentes e o Canadá não foram alterados. As orientações de publicação e Supabase fundamentaram a ativação em etapas e a verificação posterior à mudança.
 
-- Confirm project Functions region São Paulo (`gru1` in versioned vercel.json). A public
-  HEAD response showed `gru1`, but that alone does not verify every function's execution.
-- Confirm deployment protection for Preview, environment-scoped secrets, project member
-  permissions and rollback access. No authenticated Vercel/GitHub configuration audit
-  was available in this run.
-- Inspect access logs/analytics/drains for `/p/*/agendamento/*`, API equivalents and Auth
-  callback query strings. Redact or exclude private tokens, restrict operator access and
-  set retention. Application logs omit raw errors/PII; they cannot control provider access
-  logs, browser history, screenshots or clipboard. Treat a copied private URL as a password.
-- Configure WAF/request-volume alerts as additional protection. Database quotas are shared
-  and cannot be bypassed by calling the public writer after retirement, but distributed
-  low-rate abuse and unverified phone identity remain. CAPTCHA/phone verification may be
-  needed if abuse occurs; neither is silently claimed implemented.
-- GitHub: check branch protection/review requirements, secret scanning/push protection,
-  dependency alerts and minimum workflow permissions. No repository settings were changed.
+1. **Chave secreta:** no Supabase de São Paulo, em **Project Settings → API Keys**, obter uma chave secreta desse projeto. Na Vercel, em **Agenda Pro → Settings → Environment Variables**, cadastrar `SUPABASE_SECRET_KEY`, tipo **Secret**, somente em **Production**. Nunca colocá-la em `NEXT_PUBLIC_*`, Git, capturas de tela, chat ou Preview. Os scripts de teste não persistiram credenciais: o servidor local de teste as recebeu apenas nas variáveis do processo.
+2. **Variáveis de produção:** confirmar que `NEXT_PUBLIC_SUPABASE_URL` aponta para São Paulo, a chave pública pertence ao mesmo projeto e `NEXT_PUBLIC_SITE_URL` contém `https://www.ammaligestao.com` após a virada. Não configurar `SECURITY_LOCAL_BOOKING_TEST` na Vercel.
+3. **Separação de ambientes — pendência:** Preview deve usar projeto e chave próprios de testes, nunca o banco de produção. A proteção bloqueia intencionalmente Preview configurado com produção. **Um projeto separado de testes ainda não foi provisionado.** O `.env.local` existente foi preservado, mas seu destino antigo no Canadá está bloqueado. Substituir por configuração de testes. Acesso local temporário à produção para testes explícitos exige `ALLOW_PRODUCTION_DATABASE_FOR_TESTS=1`. Não definir `VERCEL_ENV=production` para contornar essa proteção no desenvolvimento comum; os testes isolados de build de produção simularam explicitamente esse ambiente com credenciais em memória.
+4. **Validação da versão compatível:** publicar o código com o caminho protegido e validar a reserva pelo endereço real da Vercel. Confirmar que `x-vercel-forwarded-for` chega à função. IP confiável ausente/inválido ou falta da credencial do servidor retorna 503; nunca usa a função desprotegida como alternativa.
+5. **Desativação das funções antigas — concluída:** somente após a validação anterior, aplicar `20260927002839_security_phase5_retire_direct_booking.sql` e registrar sua versão sem modificar o histórico antigo. Essa etapa já foi executada. Chamadas diretas anônimas/autenticadas foram negadas, e reserva, reagendamento e cancelamento pelo site passaram após a ativação. **Não reaplicar a migration.**
 
-## Logs, retention and rollback limitations
+## Painel do Supabase
 
-- Database audit rows capture actor, tenant, operation and whitelisted metadata. No names,
-  phone numbers, emails, reasons, passwords or token hashes are copied into new audit rows.
-  Existing logs were preserved, not silently scrubbed. Provider/Auth logs need separate review.
-- Audit writes are atomic with business changes; failures roll back the action. API roles
-  cannot edit/delete the audit trail. Database administrators can still alter it. Existing
-  organization-delete CASCADE also deletes that tenant's logs: use an external retained
-  export if immutable forensic retention is required. No new tenant-delete action added.
-- Private booking read token expires 30 days after the appointment ends, or after cancellation
-  for cancelled appointments. History remains visible to authorized professionals. There is
-  no identity-verified self-service recovery/rotation yet; do not replace it with phone-only lookup.
-- Code rollback: use the isolated commits, but after direct-writer retirement NEVER roll
-  back to an anonymous-writer application build or loosen grants to restore service. Keep
-  a gateway-compatible build or temporarily suspend new reservations while rolling forward.
-- Schema rollback: no applied historical migration was edited/deleted. Back out a problem
-  with a reviewed additive forward migration; do not delete customer data or recreate old
-  vulnerable policies. Ordinary `db push` remains blocked by historic ledger divergence;
-  do not use `--include-all` or mark old migrations reverted.
+Os nomes dos menus abaixo foram mantidos como aparecem na interface para facilitar a localização.
 
-**Current release assessment: application release, direct-writer retirement and production
-smoke tests completed. NOT cleared for real customer data until the external backup/restore,
-Auth, administrative access, provider logs and infrastructure checks above are verified.**
+- **Authentication → Providers / Email:** captura de tela confirmou exigência de confirmação de e-mail; usuário informou mínimo de 8 caracteres salvo. Domínio Resend foi verificado em São Paulo e o usuário confirmou entrega de confirmação de cadastro no endereço antigo e de recuperação no novo. A proteção contra senhas vazadas estava indisponível/desativada no plano observado; conferir mudanças de plano, limites de requisições e demais configurações do Auth separadamente.
+- **Authentication → URL Configuration:** o usuário informou que `Site URL` agora é `https://www.ammaligestao.com` e adicionou os callbacks exatos necessários, preservando os antigos durante a transição. Não houve leitura autenticada direta da configuração. Revisar a lista completa de redirecionamentos; preferir URLs exatas de retorno de produção, sem curingas amplos que possam alcançar domínios controlados por terceiros. Remover retornos locais de produção quando desnecessários.
+- **Segurança de organizações e contas:** exigir autenticação multifator para administradores de Supabase, Vercel e GitHub, conceder somente as permissões necessárias e revisar sessões e integrações ativas. A condição de administrador global da aplicação deve ser controlada explicitamente, sem concessão automática baseada em metadados editáveis de perfil.
+- **Backups do banco:** as cópias lógicas locais criptografadas são uma contingência, **não uma restauração completa testada**. Definir política de backup automático e retenção; demonstrar restauração em outro projeto antes de armazenar dados reais de clientes. Arquivos do Storage e configurações da plataforma não estão nessas cópias. A recuperação por DPAPI depende da conta/perfil original do Windows.
+- **Infraestrutura:** o banco informou PostgreSQL 17.6. Revisar atualizações de segurança disponíveis com o Supabase, preservar e testar o índice de exclusão por profissional e seguir as orientações de reindexação do fornecedor ao atualizar. Nenhuma atualização de infraestrutura foi executada. O alerta de `btree_gist` no schema `public` exige cuidado: movê-lo sem análise pode quebrar a constraint de agenda. Planejar separadamente, verificando dependências.
+- **Security Advisor:** revisar os apontamentos restantes de `SECURITY DEFINER`, com permissões explícitas e restritas e autorização dentro das funções. A simples existência dessas funções não justifica remover RPCs públicas necessárias nem desativar RLS.
+
+## Vercel e GitHub
+
+- Confirmar a região das Functions do projeto como São Paulo: `gru1` no `vercel.json` versionado. Uma resposta pública `HEAD` mostrou `gru1`, mas isso, isoladamente, não comprova a execução de todas as funções nessa região.
+- Confirmar proteção das publicações de Preview, segredos separados por ambiente, permissões dos membros do projeto e acesso à reversão de publicação. Não houve auditoria autenticada das configurações de Vercel/GitHub nesta execução.
+- Inspecionar logs de acesso, ferramentas de análise e destinos de exportação de logs para `/p/*/agendamento/*`, equivalentes na API e parâmetros de retorno do Auth. Ocultar ou excluir tokens privados, restringir acesso dos operadores e definir retenção. Os logs da aplicação omitem erros brutos e dados pessoais, mas não controlam logs dos provedores, histórico do navegador, capturas de tela ou área de transferência. **Tratar uma URL privada copiada como uma senha.**
+- Configurar WAF e alertas de volume de requisições como proteção adicional. As cotas do banco são compartilhadas e, após a desativação, não podem ser contornadas chamando a função pública antiga. Permanecem o risco de abuso distribuído em baixo volume e a identidade não verificada do telefone. CAPTCHA/verificação de telefone podem ser necessários se ocorrer abuso; nenhum dos dois é considerado implementado.
+- No GitHub, conferir proteção de branches, exigência de revisão, detecção de segredos e bloqueio de seu envio, alertas de dependências e permissões mínimas dos fluxos automatizados. Nenhuma configuração do repositório foi alterada.
+
+## Limitações de logs, retenção e reversão
+
+- Os registros de auditoria do banco capturam autor, organização, operação e metadados explicitamente permitidos. Nomes, telefones, e-mails, motivos, senhas e hashes de tokens não são copiados para os novos registros. Logs existentes foram preservados, não apagados silenciosamente. Logs do Auth e dos provedores precisam de revisão separada.
+- Auditoria e alterações de negócio são gravadas atomicamente; falhas revertem a ação. Papéis da API não podem editar/excluir a trilha de auditoria. Administradores do banco ainda podem alterá-la. A exclusão de organização com `CASCADE`, já existente, também exclui seus logs. Se for necessária retenção imutável para investigação, utilizar exportação externa com retenção. Nenhuma nova ação de exclusão de organização foi adicionada.
+- O token privado de consulta expira 30 dias após o término do agendamento ou, para agendamentos cancelados, após o cancelamento. O histórico permanece visível aos profissionais autorizados. Ainda não existe recuperação/rotação de token pelo cliente com verificação de identidade; não substituir por consulta baseada apenas no telefone.
+- **Reversão de código:** usar os commits isolados, mas, após a desativação das funções diretas, **nunca** retornar a uma versão que grave reservas anonimamente nem afrouxar permissões para restaurar o serviço. Manter uma versão compatível com o caminho protegido ou suspender temporariamente novas reservas enquanto se publica a correção.
+- **Reversão de schema:** nenhuma migration histórica aplicada foi editada ou excluída. Corrigir problemas por uma nova migration aditiva revisada; não excluir dados de clientes nem recriar políticas antigas vulneráveis. O `db push` comum continua bloqueado pela divergência histórica de versões; não usar `--include-all` nem marcar migrations antigas como revertidas.
+
+**Parecer atual: publicação, desativação das funções antigas e testes essenciais em produção concluídos. Ainda NÃO liberado para dados reais de clientes até verificar os itens externos de backup/restauração, Auth, acesso administrativo, logs dos provedores e infraestrutura descritos acima.**
