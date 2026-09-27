@@ -1,5 +1,9 @@
 # Security remediation — phased status
 
+Latest release update (2026-09-27): application `bb0a131` published; direct booking
+writers retired in São Paulo after production validation. See the final section for
+current evidence. Earlier phase notes describe their status at execution time.
+
 ## Phase 1: authorization and isolation
 
 Branch: `codex/security-hardening`. Base: `9e42932`.
@@ -276,36 +280,68 @@ Database fixtures in SQL suites always rolled back. Existing test/customer data 
 
 ### Finding-to-evidence summary
 
-| Finding | Correction | Regression evidence | Commit |
-|---|---|---|---|
-| A1 | Current membership required even for linked professional | SQL + same signed JWT after revocation | f65eee3, 20695f7 |
-| A2 | Legacy policies/grants retired, rows retained | Populated A/B fixtures and forbidden cross-tenant write | f65eee3, 4baabca |
-| A3 | Direct booking writes/hard deletion blocked | Column/table grants and signed HTTP mutation denial | f65eee3 |
-| A4 | Confirmed Auth identity, immutable profile email | Forged profile and unconfirmed email rejected | f65eee3 |
-| A5 | Server gateway + atomic DB quotas + staged direct-writer retirement | 19 SQL + concurrent quota HTTP; activation still pending | 0754f09 |
-| B1 | Original duration/professional reschedule validation | Shorter/longer service, blocks, closing-time cases | c4ec533 |
-| B2 | Strict internal redirect validation | Encoded slash/backslash, foreign origin cases | 34e5361 |
-| B3 | Public booking cannot rename CRM customer | Normalized-phone reuse with independent snapshot | c4ec533 |
-| B4 | Common lock order and state recheck | Simultaneous cancellation, single semantic audit entry | c4ec533 |
-| B5 | Tenant/series FK and snapshot constraints | Cross-tenant series, null snapshots rejected | c4ec533 |
-| B6 | Atomic audit triggers, protected writes, minimal data | Actor/diff, revocation, privacy and cascade tests | Phase 6 commit |
-| B7 | CSP nonce, frame/nosniff/referrer headers | Real browser rejects injected script | 34e5361 |
-| B8 | No-store/noindex/no-referrer, expiry, reduced logs | Header, token lifetime and log/bundle tests | 34e5361 + Phase 6 commit |
-| B9 | Neutral public messages, exact password, typed/bounded input | Unit, malformed requests, DB constraint tests | 34e5361 + Phase 6 commit |
-| B10 | JSON must be a bounded non-null object | JSON null returns 400 in browser/API test | 34e5361 |
-| B11 | Next.js 16.3.6, minimal related patch | Dependency regression, build, audit | 987f0ff |
-| B12 | Environment guards and explicit local opt-in | Canada/Preview/local separation tests | Phase 6 commit |
+| Finding | Correction | Regression evidence | Result | Commit |
+|---|---|---|---|---|
+| A1 | Current membership required even for linked professional | SQL + same signed JWT after revocation | Passed | f65eee3, 20695f7 |
+| A2 | Legacy policies/grants retired, rows retained | Populated A/B fixtures and forbidden cross-tenant write | Passed | f65eee3, 4baabca |
+| A3 | Direct booking writes/hard deletion blocked | Column/table grants and signed HTTP mutation denial | Passed | f65eee3 |
+| A4 | Confirmed Auth identity, immutable profile email | Forged profile and unconfirmed email rejected | Passed | f65eee3 |
+| A5 | Server gateway + atomic DB quotas + direct-writer retirement | 19 SQL + concurrent quota HTTP; live direct bypass denied | Passed; distributed abuse remains a limitation | 0754f09 |
+| B1 | Original duration/professional reschedule validation | Shorter/longer service, blocks, closing-time cases | Passed | c4ec533 |
+| B2 | Strict internal redirect validation | Encoded slash/backslash, foreign origin cases | Passed | 34e5361 |
+| B3 | Public booking cannot rename CRM customer | Normalized-phone reuse with independent snapshot | Passed | c4ec533 |
+| B4 | Common lock order and state recheck | Simultaneous cancellation, single semantic audit entry | Passed | c4ec533 |
+| B5 | Tenant/series FK and snapshot constraints | Cross-tenant series, null snapshots rejected | Passed | c4ec533 |
+| B6 | Atomic audit triggers, protected writes, minimal data | Actor/diff, revocation, privacy and cascade tests | Passed; external retention pending | bb0a131 |
+| B7 | CSP nonce, frame/nosniff/referrer headers | Real browser rejects injected script | Passed in production | 34e5361 |
+| B8 | No-store/noindex/no-referrer, expiry, reduced logs | Header, token lifetime and log/bundle tests | Passed; provider URL logs pending | 34e5361, bb0a131 |
+| B9 | Neutral public messages, exact password, typed/bounded input | Unit, malformed requests, DB constraint tests | Passed | 34e5361, bb0a131 |
+| B10 | JSON must be a bounded non-null object | JSON null returns 400 in browser/API test | Passed in production | 34e5361 |
+| B11 | Next.js 16.3.6, minimal related patch | Dependency regression, build, audit | Passed; audit at time of remediation | 987f0ff |
+| B12 | Environment guards and explicit local opt-in | Canada/Preview/local separation tests | Passed; separate Preview project pending | bb0a131 |
 
 ### Production distinction and current verdict
 
-No application push/deployment was performed. Public production HEAD still returned
-the old header set (HSTS and X-Powered-By, no new CSP), HTTP 200, and Vercel `gru1` routing.
-That is not proof of every function's region. The old direct booking RPC remains callable
-until the coordinated release; the guarded RPC is already inaccessible to anon.
+Application commit `bb0a131` was pushed to main. The first Vercel deployment failed
+closed because `NEXT_PUBLIC_SITE_URL` contained the Supabase origin. The operator
+corrected it to `https://agenda-pro-lovat.vercel.app` and successfully redeployed as
+`6Z6V8xsQiGHKxSQZUbrBu5mZr9D4`. No security guard was weakened to make the build pass.
+
+The public site now returns HTTP 200, per-response CSP nonces, nosniff, frame denial,
+no-referrer and `gru1::gru1` routing. This alone is not proof of every function's region.
+Sixteen checks in Edge at mobile viewport passed on the live site, including hydrated
+password toggle, client navigation, malformed/cross-origin requests and a browser-local
+injected script blocked by CSP. No normal runtime errors were observed. No production
+HTML or customer content was modified by the injection test.
+
+The live app/API flow first passed 28 integration assertions. Then the exact existing
+retirement migration `20260927002839` was applied in one transaction with ledger guards,
+preserving all 15 preceding entries (16 total). A fresh encrypted logical snapshot was
+verified at `C:\Users\misael\AppData\Local\AgendaPro\SecurityBackups\sao-paulo-20260927-132039.dpapi`.
+It is not a full physical backup or a demonstrated database restore.
+
+After activation, 32 signed-session/HTTP assertions passed: both legacy writers reject
+anonymous and authenticated calls with insufficient privilege; booking through the live
+Vercel gateway still succeeds; private read, reschedule, release of the old slot, cancel
+and release of the new slot all work. True concurrent requests produce one reservation
+and one controlled conflict. Membership removal rejects the same previously issued JWT.
+All generated fixtures were removed, without touching existing tenant/customer data.
+
+All 126 SQL assertions passed again after activation: 62 authorization/isolation, 28
+schedule integrity, 19 antiabuse and 17 audit/expiry/input-bound checks. Antiabuse now
+tests the actually activated grants, not candidate DDL. Local tests passed 26/26;
+lint, TypeScript and diff checks passed.
+The first sandbox-only test invocation failed to spawn Node workers (EPERM), not an
+application assertion; the approved unrestricted rerun passed. Production build passed
+on Vercel; no application-source change was made after the validated release.
+
+No authenticated Vercel runtime-log scan or complete provider settings audit was available.
+The versioned activation script refuses replay and refreshes the encrypted snapshot first.
+Do not roll back to a pre-gateway application or re-grant direct public booking access.
 
 **Would I put real customer data into the currently published application? NO.**
-Code/database evidence is substantially stronger, but release/retirement activation and
-production smoke checks are pending. Backup restore, administrative MFA, environment
+Release, retirement activation and production smoke checks passed. Backup restore,
+administrative MFA, environment
 scopes, Auth protection/email delivery, infrastructure token-log handling and repository
 access controls require the external checks listed separately. Passing tests is not a
 claim that every possible vulnerability is absent. Do not mark the overall task complete.

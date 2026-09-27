@@ -42,6 +42,10 @@ const users = [];
 const workspaces = [];
 const passed = [];
 const gatewayMode = process.argv.includes('--gateway');
+const appBase = process.env.SECURITY_TEST_APP_URL;
+const productionSmoke = process.argv.includes('--production-smoke');
+if (productionSmoke && (!gatewayMode || appBase !== 'https://agenda-pro-lovat.vercel.app')) throw new Error('Production smoke requires --gateway and the exact approved application URL');
+if (appBase && !['localhost', '127.0.0.1'].includes(new URL(appBase).hostname) && !productionSmoke) throw new Error('Remote application flow requires explicit --production-smoke');
 const rateDigests = [];
 const uuid = value => {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) throw new Error('Invalid fixture UUID');
@@ -172,6 +176,15 @@ try {
     if (gatewayMode) {
       const denied = await publicRpc('book_public_appointment_guarded', { ...bookingArgs, p_client_digest: gatewayIp, p_phone_digest: gatewayPhone });
       check('Anonymous cannot forge gateway digests via direct RPC', denied.status === 401 || denied.status === 403);
+      if (process.argv.includes('--expect-retired')) {
+        for (const writer of ['book_public_appointment', 'book_public_appointment_with_management']) {
+          for (const [label, token] of [['anonymous', anonymous], ['authenticated', b.token]]) {
+            // Null payload is deliberately non-bookable even if a privilege regresses.
+            const probe = await rest(token, `rpc/${writer}`, 'POST', { p_slug: null, p_service_id: null, p_starts_at: null, p_customer_name: null, p_customer_phone: null });
+            check(`${label} denied retired direct writer ${writer}`, [401,403].includes(probe.status) && probe.data?.code === '42501');
+          }
+        }
+      }
       const burstIp = randomBytes(32).toString('hex');
       const burstPhone = randomBytes(32).toString('hex');
       rateDigests.push(burstIp, burstPhone);
@@ -180,20 +193,22 @@ try {
       })));
       check('Atomic quotas: exactly ten concurrent invalid attempts admitted', burst.filter(r => r.data?.error_code === 'P0002').length === 10);
       check('Atomic quotas: remaining concurrent attempts rate limited', burst.filter(r => r.data?.error_code === 'RATE_LIMITED').length === 2);
-      const base = process.env.SECURITY_TEST_APP_URL;
+      const base = appBase;
       if (base) {
-        if (!['localhost', '127.0.0.1'].includes(new URL(base).hostname)) throw new Error('App flow restricted to local production build');
         // Matches server's explicit local-only test identity; never sent in request JSON.
-        rateDigests.push(createHmac('sha256', adminKey).update('booking-ip:local-security-test').digest('hex'));
-        rateDigests.push(createHmac('sha256', adminKey).update(`booking-phone:${b.slug}:11900000009`).digest('hex'));
+        // Production uses the deployment's own secret/IP: never clear those real quotas.
+        if (!productionSmoke) {
+          rateDigests.push(createHmac('sha256', adminKey).update('booking-ip:local-security-test').digest('hex'));
+          rateDigests.push(createHmac('sha256', adminKey).update(`booking-phone:${b.slug}:11900000009`).digest('hex'));
+        }
         const call = async (path, body) => {
-          const response = await fetch(`${base}${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+          const response = await fetch(`${base}${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(30000) });
           return { status: response.status, data: await response.json() };
         };
         const response = await call(`/api/public/${b.slug}/book`, { service_id: service, starts_at: `${day}T09:00:00-03:00`, customer_name: 'App flow fixture', customer_phone: '11900000009' });
         check('App API creates booking through guarded RPC', response.status === 201 && typeof response.data.management_url === 'string');
         const management = response.data.management_url;
-        const privatePage = await fetch(`${base}${management}`);
+        const privatePage = await fetch(`${base}${management}`, { signal: AbortSignal.timeout(30000) });
         check('Private management page renders without token cache', privatePage.status === 200 && /no-store/.test(privatePage.headers.get('cache-control')));
         const apiPath = management.replace('/p/', '/api/public/');
         const moved = await call(`${apiPath}/reschedule`, { starts_at: `${day}T10:00:00-03:00` });
