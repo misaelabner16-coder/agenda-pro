@@ -128,5 +128,33 @@ simultaneous cancellation (one success, one final-state rejection, one audit ent
 another professional allowed in the same unit/time. Temporary fixtures were removed.
 TypeScript and ESLint passed. The reschedule UI/route changes are not deployed yet.
 
-Phases 3–6 and application deployment are outstanding. This is not go-live approval
-and not a completed frontend security review.
+## Phase 3: web security
+
+- B2: redirect validation rejects protocol-relative, backslash/encoded-backslash and
+  control-character destinations; confirmation accepts only supported OTP types.
+- B7: per-request 256-bit CSP nonce, strict-dynamic scripts without unsafe-inline/eval
+  in production, framing/object/base restrictions, nosniff, permissions/referrer headers.
+  Root rendering is now request-based so nonce-bearing HTML cannot be statically reused.
+  Tradeoff: the landing page also renders dynamically; existing inline calendar styles
+  remain allowed (not inline scripts). HSTS is already supplied by Vercel.
+- B8: management/auth/API responses no-store, no-referrer, noindex; private booking page
+  has matching metadata. Provider/CDN URL-log retention/redaction remains an external
+  operational check: bearer tokens are still present in the existing private URL format.
+- B9/B10: bounded streaming JSON reader rejects null, arrays, malformed/oversized bodies,
+  non-JSON and cross-origin browser mutations. UUID/date/timezone/slug/reason checks;
+  password whitespace preserved; signup/resend messages neutral, email removed from
+  generated redirect URLs. Invalid/overflowing service prices return a controlled error.
+- Reviewed client source for unsafe HTML/eval sinks and credential storage: no such HTML
+  sinks found; localStorage is used only for tutorial dismissal, not management tokens.
+  Server-side authorization still applies independently of all client controls.
+
+Evidence: **18 Node tests passed**, TypeScript/lint checks, production build, and
+**16 browser checks** against the local production build connected to São Paulo.
+Browser checks cover responsive login/navigation/password toggle, nonce/header delivery,
+distinct nonces, actual HTML-injected script blocked, JSON null => 400, foreign Origin =>
+403 and impossible date => 400. Normal navigation produced no runtime/CSP errors.
+The initial DevTools-evaluation injection probe was invalid for testing untrusted HTML;
+it was replaced by HTML-response injection under the unmodified response CSP.
+The first build hit a Windows telemetry-file EXDEV error; disabling telemetry fixed it.
+
+Phases 4–6 and application deployment remain outstanding. This is not go-live approval.

@@ -1,19 +1,36 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/supabase/database";
+import { browserSecurityHeaders, privateResponseHeaders } from "@/lib/web-security";
 
 export async function proxy(request: NextRequest) {
-  let response = NextResponse.next({ request });
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return response;
+  const nonce = Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64");
+  const securityHeaders = browserSecurityHeaders(nonce, process.env.NODE_ENV === "development", url);
+  function nextResponse() {
+    const headers = new Headers(request.headers);
+    // Overwrite user-supplied nonce/CSP. Next.js uses this to nonce its scripts.
+    headers.set("x-nonce", nonce);
+    headers.set("Content-Security-Policy", securityHeaders["Content-Security-Policy"]);
+    return NextResponse.next({ request: { headers } });
+  }
+  let response = nextResponse();
+  function secureResponse() {
+    for (const [name, value] of Object.entries(securityHeaders)) response.headers.set(name, value);
+    if (/^\/(api|auth|dashboard|admin)(\/|$)/.test(request.nextUrl.pathname) || request.nextUrl.pathname.includes("/agendamento/")) {
+      for (const [name, value] of Object.entries(privateResponseHeaders)) response.headers.set(name, value);
+    }
+    return response;
+  }
+  if (!url || !key) return secureResponse();
 
   const supabase = createServerClient<Database>(url, key, {
     cookies: {
       getAll: () => request.cookies.getAll(),
       setAll(cookiesToSet) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        response = NextResponse.next({ request });
+        response = nextResponse();
         cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
       },
     },
@@ -22,7 +39,7 @@ export async function proxy(request: NextRequest) {
   // Keep this call immediately after creating the client, as recommended by
   // @supabase/ssr, so the browser and Server Components stay in sync.
   await supabase.auth.getClaims();
-  return response;
+  return secureResponse();
 }
 
 export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"] };

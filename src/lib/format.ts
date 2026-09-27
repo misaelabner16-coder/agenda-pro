@@ -15,7 +15,9 @@ export function priceToCents(rawValue: FormDataEntryValue | null): number {
   const raw = typed.includes(",") ? typed.replace(/\./g, "").replace(",", ".") : typed;
   const value = Number(raw);
   if (!Number.isFinite(value) || value < 0) throw new Error("Informe um preço válido.");
-  return Math.round(value * 100);
+  const cents = Math.round(value * 100);
+  if (!Number.isSafeInteger(cents) || cents > 2147483647) throw new Error("Informe um preço válido.");
+  return cents;
 }
 
 export function slugify(value: string): string {

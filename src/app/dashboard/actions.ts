@@ -22,7 +22,10 @@ export async function createService(_state: ActionState, formData: FormData): Pr
   const workspace = await requireWorkspace();
   const name = text(formData, "name");
   const duration = Number(text(formData, "duration"));
-  if (name.length < 2 || !Number.isInteger(duration) || duration < 15 || duration > 480) return { error: "Revise o nome e a duração do serviço." };
+  if (name.length < 2 || name.length > 120 || !Number.isInteger(duration) || duration < 15 || duration > 480 || duration % 15 !== 0) return { error: "Revise o nome e a duração do serviço." };
+  let price: number;
+  try { price = priceToCents(formData.get("price")); }
+  catch { return { error: "Informe um preço válido." }; }
   const supabase = await createSupabaseServerClient();
   if (!workspace.location.default_professional_id) return { error: "A unidade ainda não possui um profissional padrão." };
   const { error } = await supabase.rpc("create_service_for_default_professional", {
@@ -30,7 +33,7 @@ export async function createService(_state: ActionState, formData: FormData): Pr
     p_professional_id: workspace.location.default_professional_id,
     p_name: name,
     p_duration_minutes: duration,
-    p_price_cents: priceToCents(formData.get("price")),
+    p_price_cents: price,
   });
   if (error) return { error: "Não foi possível cadastrar o serviço." };
   revalidateServices(workspace.location.public_slug);

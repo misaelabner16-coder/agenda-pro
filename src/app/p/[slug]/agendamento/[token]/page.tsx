@@ -3,6 +3,9 @@ import { notFound } from "next/navigation";
 import { BookingManagement } from "@/components/booking-management";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { formatDateTime } from "@/lib/format";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { robots: { index: false, follow: false }, referrer: "no-referrer" };
 
 export default async function BookingManagementPage({ params }: { params: Promise<{ slug: string; token: string }> }) {
   const { slug, token } = await params;
@@ -10,7 +13,7 @@ export default async function BookingManagementPage({ params }: { params: Promis
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.rpc("get_public_booking_management", { p_slug: slug, p_management_token: token });
   if (error) {
-    console.error("[booking-management] Falha ao carregar agendamento.", { slug, code: error.code, message: error.message });
+    console.error("[booking-management] Falha ao carregar agendamento.", { code: error.code });
     throw new Error("Não foi possível carregar o agendamento.");
   }
   const booking = Array.isArray(data) ? data[0] as { location_name: string; time_zone: string; service_id: string; service_name: string; customer_name: string; starts_at: string; status: string; can_cancel: boolean; can_reschedule: boolean } | undefined : undefined;
