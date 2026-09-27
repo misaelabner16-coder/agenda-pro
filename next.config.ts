@@ -10,7 +10,7 @@ export function assertProductionSupabaseTarget(environment?: string, url?: strin
 assertProductionSupabaseTarget(process.env.VERCEL_ENV, process.env.NEXT_PUBLIC_SUPABASE_URL);
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  poweredByHeader: false,
 };
 
 export default nextConfig;

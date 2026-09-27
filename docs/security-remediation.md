@@ -157,4 +157,20 @@ The initial DevTools-evaluation injection probe was invalid for testing untruste
 it was replaced by HTML-response injection under the unmodified response CSP.
 The first build hit a Windows telemetry-file EXDEV error; disabling telemetry fixed it.
 
-Phases 4–6 and application deployment remain outstanding. This is not go-live approval.
+## Phase 4: targeted dependency hardening
+
+Next.js and eslint-config-next updated from 16.3.5 to **16.3.6**, the vendor patch
+for GHSA-vcvr-r3jv-pc5j (ImageResponse/next-og). No application use of next/og was
+found, but the vulnerable dependency was removed. React and unrelated dependencies
+were not upgraded. Framework advertising header disabled.
+
+Evidence: **19 unit tests**, lint, TypeScript and production build passed; **16 browser
+security checks** passed again on Next 16.3.6, with zero normal-navigation errors.
+The mobile login screenshot was inspected. pnpm audit reported **0 vulnerabilities
+across 443 dependencies**; this does not replace checking vendor advisories.
+The dependency regression test pins the reviewed minimum version and matching lint package.
+PNPM 11 verification uses the same CI/store settings as installation; no verification bypass.
+
+Vendor advisory: https://github.com/vercel/next.js/security/advisories/GHSA-vcvr-r3jv-pc5j
+
+Phases 5–6 and application deployment remain outstanding. This is not go-live approval.
