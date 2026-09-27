@@ -12,7 +12,7 @@ export async function createBusiness(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const requestedSlug = slugify(String(formData.get("slug") ?? ""));
   const slug = requestedSlug || slugify(name);
-  if (name.length < 2 || slug.length < 3) redirect(`/onboarding?erro=${encodeURIComponent("Informe um nome e um endereço com pelo menos 3 caracteres.")}`);
+  if (name.length < 2 || name.length > 120 || slug.length < 3 || slug.length > 80) redirect(`/onboarding?erro=${encodeURIComponent("Use nome de 2 a 120 caracteres e endereço de 3 a 80 caracteres.")}`);
 
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("create_organization_with_location", {
@@ -23,7 +23,7 @@ export async function createBusiness(formData: FormData) {
   if (error?.code === "23505") redirect(`/onboarding?erro=${encodeURIComponent("Esse endereço já está em uso. Escolha outro.")}`);
   if (error?.code === "42501") redirect(`/login?erro=${encodeURIComponent("Sua sessão expirou. Entre novamente para criar a agenda.")}`);
   if (error) {
-    console.error("[onboarding] Falha ao criar workspace.", { code: error.code, message: error.message });
+    console.error("[onboarding] Falha ao criar workspace.", { code: error.code });
     redirect(`/onboarding?erro=${encodeURIComponent("Não foi possível criar a agenda agora. Tente novamente em alguns instantes.")}`);
   }
   revalidatePath("/", "layout");

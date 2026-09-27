@@ -12,6 +12,7 @@ export const validUuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4
 export const validToken = (value: string) => /^[a-f0-9]{64}$/i.test(value);
 export const validSlug = (value: string) => value.length <= 80 && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value);
 export const validEmail = (value: string) => value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+export const validClock = (value: string) => /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
 export function validDate(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const date = new Date(`${value}T00:00:00Z`);

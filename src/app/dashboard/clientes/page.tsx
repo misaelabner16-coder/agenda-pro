@@ -15,7 +15,7 @@ export default async function CustomersPage() {
   ]);
   const firstError = customersResult.error ?? servicesResult.error ?? seriesResult.error ?? bookingsResult.error;
   if (firstError) {
-    console.error("[customers] Falha ao carregar clientes fixos.", { code: firstError.code, message: firstError.message });
+    console.error("[customers] Falha ao carregar clientes fixos.", { code: firstError.code });
     throw new Error("Não foi possível carregar os clientes.");
   }
   const { data: customers } = customersResult;

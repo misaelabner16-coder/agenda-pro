@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import type { ActionState } from "@/components/action-form";
 import { currentUser } from "@/modules/tenancy/workspace";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { validEmail, validUuid } from "@/lib/web-security";
 
 function text(formData: FormData, key: string) { return String(formData.get(key) ?? "").trim(); }
 
@@ -20,7 +21,7 @@ export async function addOrganizationAccess(_state: ActionState, formData: FormD
   const email = text(formData, "email").toLowerCase();
   const organizationId = text(formData, "organization_id");
   const role = text(formData, "role");
-  if (!/^\S+@\S+\.\S+$/.test(email) || !organizationId || !["owner", "manager", "receptionist", "professional"].includes(role)) return { error: "Revise o e-mail, a empresa e a função." };
+  if (!validEmail(email) || !validUuid(organizationId) || !["owner", "manager", "receptionist", "professional"].includes(role)) return { error: "Revise o e-mail, a empresa e a função." };
   const supabase = await requirePlatformAdmin();
   const { error } = await supabase.rpc("grant_organization_access", {
     p_organization_id: organizationId,
@@ -35,6 +36,7 @@ export async function addOrganizationAccess(_state: ActionState, formData: FormD
 
 export async function deactivateOrganizationAccess(_state: ActionState, formData: FormData): Promise<ActionState> {
   const membershipId = text(formData, "membership_id");
+  if (!validUuid(membershipId)) return { error: "Selecione um acesso válido." };
   const supabase = await requirePlatformAdmin();
   const { error } = await supabase.from("organization_memberships").update({ is_active: false }).eq("id", membershipId);
   if (error) return { error: "Não foi possível remover o acesso." };

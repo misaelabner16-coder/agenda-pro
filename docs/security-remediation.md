@@ -221,5 +221,91 @@ reschedule/cancel assertions remain unchanged. Phase 5 explicitly tests writer g
 Vercel trusted header reference: https://vercel.com/docs/headers/request-headers#x-vercel-forwarded-for
 Supabase key reference: https://supabase.com/docs/guides/api/api-keys
 
-Phase 6, application deployment and retirement activation remain outstanding.
-This is not go-live approval.
+## Phase 6: audit, privacy and environment separation
+
+Migration `20260927105655_security_phase6_audit_and_token_lifetime.sql` **applied** to
+São Paulo after rollback-only tests, with encrypted snapshot
+`sao-paulo-20260927-080655.dpapi`. All 14 previous ledger entries preserved (15 now).
+
+- Eleven database triggers capture critical changes, including direct authorized API
+  edits, membership revocation, service/hour/block changes and booking creation.
+  Actor comes from authenticated context; before/after data is whitelisted. API roles
+  cannot write or delete audit rows. Personal values, reasons and token hashes excluded.
+- Private read access expires 30 days after an appointment ends or is cancelled; future
+  reservations remain accessible, professional history is preserved. UI explains validity.
+  Token recovery/rotation and provider URL-log retention are still operational limitations.
+- Validated database text bounds and matching server form checks prevent oversized input;
+  no existing data was trimmed/deleted. Real dates, clock values, UUIDs and email lengths
+  are checked before actions. Raw database messages and whole error objects removed from
+  application/browser logs; regression scans protect these log sites.
+- Canada is blocked in every environment. Production must use São Paulo; Preview cannot
+  share production; local production access needs explicit temporary opt-in. Auth email
+  redirect origin rejects Supabase URLs and malformed/unsafe application origins.
+  Existing `.env.local` was preserved, so ordinary local startup now intentionally stops
+  until its retired configuration is replaced. No test connected to Canada.
+- Added the external operational/release checklist in `security-operations-checklist.md`.
+  Supabase/Next.js, environment, React and observability guidance informed narrow grants,
+  server-only credential separation and minimal non-sensitive logs; no telemetry vendor
+  or other infrastructure dependency was introduced.
+
+The first candidate expiry definition used an older return signature; PostgreSQL rejected
+it and rolled back. The effective live signature was inspected and its service_id and
+can_reschedule outputs preserved. The corrected candidate and applied version passed.
+
+### Final executed verification (2026-09-27)
+
+| Verification | Result |
+|---|---|
+| pnpm test | 26 passed |
+| Phase 1 SQL: isolation, RLS, revocation, legacy policies | 62 passed |
+| Phase 2 SQL: scheduling, snapshots, recurrence | 28 passed |
+| Phase 5 SQL: quotas/direct bypass, retirement in ROLLBACK | 19 passed |
+| Phase 6 SQL: audit, expiry, database input bounds | 17 passed |
+| Signed-JWT/HTTP integration + concurrent requests + real app API flow | 28 passed |
+| Production-build browser checks (mobile, hydration, CSP/XSS, bad requests) | 16 passed |
+| Compiled browser bundle scan | 24 assets, no privileged credentials detected |
+| pnpm lint / TypeScript / pnpm build | Passed |
+| git diff --check | Passed |
+| Effective public tables without RLS | 0 |
+| Effective enabled audit triggers | 11 |
+
+The last HTTP run repeated login/onboarding, A/B access denial, removal with reuse of the
+same signed JWT, true simultaneous booking/cancellation, atomic quotas, and the application
+API create/read/reschedule/cancel flow. All generated tenants/users/quota fixtures removed.
+Database fixtures in SQL suites always rolled back. Existing test/customer data preserved.
+
+### Finding-to-evidence summary
+
+| Finding | Correction | Regression evidence | Commit |
+|---|---|---|---|
+| A1 | Current membership required even for linked professional | SQL + same signed JWT after revocation | f65eee3, 20695f7 |
+| A2 | Legacy policies/grants retired, rows retained | Populated A/B fixtures and forbidden cross-tenant write | f65eee3, 4baabca |
+| A3 | Direct booking writes/hard deletion blocked | Column/table grants and signed HTTP mutation denial | f65eee3 |
+| A4 | Confirmed Auth identity, immutable profile email | Forged profile and unconfirmed email rejected | f65eee3 |
+| A5 | Server gateway + atomic DB quotas + staged direct-writer retirement | 19 SQL + concurrent quota HTTP; activation still pending | 0754f09 |
+| B1 | Original duration/professional reschedule validation | Shorter/longer service, blocks, closing-time cases | c4ec533 |
+| B2 | Strict internal redirect validation | Encoded slash/backslash, foreign origin cases | 34e5361 |
+| B3 | Public booking cannot rename CRM customer | Normalized-phone reuse with independent snapshot | c4ec533 |
+| B4 | Common lock order and state recheck | Simultaneous cancellation, single semantic audit entry | c4ec533 |
+| B5 | Tenant/series FK and snapshot constraints | Cross-tenant series, null snapshots rejected | c4ec533 |
+| B6 | Atomic audit triggers, protected writes, minimal data | Actor/diff, revocation, privacy and cascade tests | Phase 6 commit |
+| B7 | CSP nonce, frame/nosniff/referrer headers | Real browser rejects injected script | 34e5361 |
+| B8 | No-store/noindex/no-referrer, expiry, reduced logs | Header, token lifetime and log/bundle tests | 34e5361 + Phase 6 commit |
+| B9 | Neutral public messages, exact password, typed/bounded input | Unit, malformed requests, DB constraint tests | 34e5361 + Phase 6 commit |
+| B10 | JSON must be a bounded non-null object | JSON null returns 400 in browser/API test | 34e5361 |
+| B11 | Next.js 16.3.6, minimal related patch | Dependency regression, build, audit | 987f0ff |
+| B12 | Environment guards and explicit local opt-in | Canada/Preview/local separation tests | Phase 6 commit |
+
+### Production distinction and current verdict
+
+No application push/deployment was performed. Public production HEAD still returned
+the old header set (HSTS and X-Powered-By, no new CSP), HTTP 200, and Vercel `gru1` routing.
+That is not proof of every function's region. The old direct booking RPC remains callable
+until the coordinated release; the guarded RPC is already inaccessible to anon.
+
+**Would I put real customer data into the currently published application? NO.**
+Code/database evidence is substantially stronger, but release/retirement activation and
+production smoke checks are pending. Backup restore, administrative MFA, environment
+scopes, Auth protection/email delivery, infrastructure token-log handling and repository
+access controls require the external checks listed separately. Passing tests is not a
+claim that every possible vulnerability is absent. Do not mark the overall task complete.

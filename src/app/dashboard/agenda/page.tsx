@@ -28,7 +28,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
     supabase.from("availability_blocks").select("id, title, start_date, end_date, week_days, start_time, end_time, is_all_day").eq("organization_id", workspace.organization.id).eq("location_id", workspace.location.id).order("created_at", { ascending: false }),
   ]);
   const firstError = eventsResult.error ?? blocksResult.error;
-  if (firstError) { console.error("[agenda] Falha ao carregar eventos.", { code: firstError.code, message: firstError.message }); throw new Error("Não foi possível carregar a agenda."); }
+  if (firstError) { console.error("[agenda] Falha ao carregar eventos.", { code: firstError.code }); throw new Error("Não foi possível carregar a agenda."); }
   const events = ((eventsResult.data ?? []) as CalendarEvent[]).filter((event) => eventTouchesDate(event.starts_at, event.ends_at, date, zone));
   const blocks = (blocksResult.data ?? []) as AvailabilityBlock[];
   const weekday = new Date(`${date}T12:00:00Z`).getUTCDay();

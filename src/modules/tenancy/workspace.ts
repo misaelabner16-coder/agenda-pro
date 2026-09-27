@@ -26,7 +26,7 @@ const workspaceForUser = cache(async (userId: string): Promise<Workspace | null>
     .order("created_at")
     .limit(20);
   if (membershipError) {
-    console.error("[workspace] Falha ao consultar vínculos ativos.", { code: membershipError.code, message: membershipError.message });
+    console.error("[workspace] Falha ao consultar vínculos ativos.", { code: membershipError.code });
     throw new Error("Não foi possível carregar o vínculo da conta.");
   }
   if (!memberships?.length) return null;

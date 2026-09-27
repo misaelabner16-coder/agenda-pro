@@ -19,7 +19,7 @@ export default async function DashboardPage() {
   ]);
   const firstError = eventsResult.error ?? servicesResult.error ?? nearbyBookingsResult.error;
   if (firstError) {
-    console.error("[dashboard] Falha ao carregar resumo.", { code: firstError.code, message: firstError.message });
+    console.error("[dashboard] Falha ao carregar resumo.", { code: firstError.code });
     throw new Error("Não foi possível carregar o resumo da agenda.");
   }
   const { data: events } = eventsResult;

@@ -10,7 +10,7 @@ export default async function ServicesPage() {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.from("services").select("*").eq("organization_id", workspace.organization.id).order("created_at");
   if (error) {
-    console.error("[services] Falha ao carregar serviços.", { code: error.code, message: error.message });
+    console.error("[services] Falha ao carregar serviços.", { code: error.code });
     throw new Error("Não foi possível carregar os serviços.");
   }
   const services = (data ?? []) as Service[];

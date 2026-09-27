@@ -8,7 +8,7 @@ export default async function SettingsPage() {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.from("locations").select("customer_cancel_minimum_minutes").eq("id", workspace.location.id).single();
   if (error) {
-    console.error("[settings] Falha ao carregar configurações.", { code: error.code, message: error.message });
+    console.error("[settings] Falha ao carregar configurações.", { code: error.code });
     throw new Error("Não foi possível carregar as configurações.");
   }
   const minutes = (data as { customer_cancel_minimum_minutes?: number } | null)?.customer_cancel_minimum_minutes ?? 0;

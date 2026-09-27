@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { passwordValue, validEmail } from "@/lib/web-security";
+import { validatedSiteOrigin } from "@/lib/environment-security";
 
 function value(formData: FormData, key: string) { return String(formData.get(key) ?? "").trim(); }
 
@@ -24,7 +25,7 @@ export async function signUp(formData: FormData) {
   if (!validEmail(email) || password.length > 1024) redirect(`/cadastro?erro=${encodeURIComponent("Revise o e-mail e a senha informados.")}`);
   if (password.length < 8) redirect(`/cadastro?erro=${encodeURIComponent("Use uma senha com pelo menos 8 caracteres.")}`);
   const supabase = await createSupabaseServerClient();
-  const origin = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const origin = validatedSiteOrigin(process.env.NEXT_PUBLIC_SITE_URL, process.env.VERCEL_ENV === "production");
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -50,7 +51,7 @@ export async function resendConfirmation(formData: FormData) {
   const email = value(formData, "email");
   if (!validEmail(email)) redirect(`/login?erro=${encodeURIComponent("Informe um e-mail válido para reenviar a confirmação.")}`);
   const supabase = await createSupabaseServerClient();
-  const origin = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const origin = validatedSiteOrigin(process.env.NEXT_PUBLIC_SITE_URL, process.env.VERCEL_ENV === "production");
   const { error } = await supabase.auth.resend({ type: "signup", email, options: { emailRedirectTo: `${origin}/auth/confirm?next=/onboarding` } });
   if (error) {
     console.error("[auth] Falha ao reenviar confirmação.", { code: error.code, status: error.status });

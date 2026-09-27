@@ -11,14 +11,14 @@ export default async function PublicBookingPage({ params }: { params: Promise<{ 
   const supabase = await createSupabaseServerClient();
   const { data: pageRows, error: pageError } = await supabase.rpc("get_public_booking_page", { p_slug: slug });
   if (pageError) {
-    console.error("[public-page] Falha ao carregar estabelecimento.", { slug, code: pageError.code, message: pageError.message });
+    console.error("[public-page] Falha ao carregar estabelecimento.", { code: pageError.code });
     throw new Error("Não foi possível carregar a agenda pública.");
   }
   const bookingPage = Array.isArray(pageRows) ? pageRows[0] as { organization_name: string; location_name: string; public_slug: string; time_zone: string } | undefined : undefined;
   if (!bookingPage) notFound();
   const { data: serviceRows, error: serviceError } = await supabase.rpc("get_public_services", { p_slug: slug });
   if (serviceError) {
-    console.error("[public-page] Falha ao carregar serviços.", { slug, code: serviceError.code, message: serviceError.message });
+    console.error("[public-page] Falha ao carregar serviços.", { code: serviceError.code });
     throw new Error("Não foi possível carregar os serviços.");
   }
   const services = (Array.isArray(serviceRows) ? serviceRows : []) as PublicService[];

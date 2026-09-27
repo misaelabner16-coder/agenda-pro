@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { browserSecurityHeaders, passwordValue, readPublicJson, safeInternalPath, validDate, validInstant, validSlug, validToken, validUuid } from "./web-security.ts";
+import { browserSecurityHeaders, passwordValue, readPublicJson, safeInternalPath, validClock, validDate, validInstant, validSlug, validToken, validUuid } from "./web-security.ts";
 import { priceToCents } from "./format.ts";
 
 test("auth redirect rejects protocol-relative, backslash, controls and malformed URLs", () => {
@@ -27,6 +27,8 @@ test("browser mutation rejects cross-origin and non-JSON input", async () => {
   assert.deepEqual(await readPublicJson(request("{}", { origin: "https://agenda.example" })), {});
 });
 test("public validators reject invalid dates and ambiguous timezone-less timestamps", () => {
+  for (const clock of ["24:00", "09:60", "99:99", "-1:00"]) assert.equal(validClock(clock), false);
+  assert.equal(validClock("23:59"), true);
   assert.equal(validDate("2026-02-30"), false); assert.equal(validDate("2028-02-29"), true);
   assert.equal(validInstant("2026-09-26T09:00:00"), false);
   assert.equal(validInstant("2026-02-30T09:00:00Z"), false);

@@ -5,6 +5,7 @@ import { requireWorkspace } from "@/modules/tenancy/workspace";
 import { priceToCents } from "@/lib/format";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { ActionState } from "@/components/action-form";
+import { validClock, validDate, validUuid } from "@/lib/web-security";
 
 function text(formData: FormData, name: string) { return String(formData.get(name) ?? "").trim(); }
 function revalidateServices(publicSlug: string) {
@@ -66,11 +67,11 @@ export async function saveBusinessHours(_state: ActionState, formData: FormData)
     if (!rawIntervals) continue;
     let intervals: unknown;
     try { intervals = JSON.parse(rawIntervals); } catch { return { error: "Revise os intervalos de funcionamento." }; }
-    if (!Array.isArray(intervals)) return { error: "Revise os intervalos de funcionamento." };
+    if (!Array.isArray(intervals) || intervals.length > 48) return { error: "Revise os intervalos de funcionamento." };
     for (const interval of intervals) {
       const start = typeof interval?.start === "string" ? interval.start : "";
       const end = typeof interval?.end === "string" ? interval.end : "";
-      if (!/^\d{2}:\d{2}$/.test(start) || !/^\d{2}:\d{2}$/.test(end) || end <= start) return { error: "Revise os intervalos de funcionamento." };
+      if (!validClock(start) || !validClock(end) || end <= start) return { error: "Revise os intervalos de funcionamento." };
       hours.push({ week_day: day, start_time: start, end_time: end });
     }
   }
@@ -91,12 +92,13 @@ export async function createAvailabilityBlock(_state: ActionState, formData: For
   const startsAt = text(formData, "starts_at");
   const endsAt = text(formData, "ends_at");
   const title = text(formData, "title") || "Horário bloqueado";
+  if (title.length > 120) return { error: "Use até 120 caracteres no título do bloqueio." };
   const weekDays = formData.getAll("week_days").map(Number).filter((day) => Number.isInteger(day) && day >= 0 && day <= 6);
   if (!["single", "weekly", "range"].includes(mode)) return { error: "Escolha o tipo de bloqueio." };
   if (mode === "weekly" && weekDays.length === 0) return { error: "Selecione ao menos um dia da semana." };
-  if (mode !== "weekly" && !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) return { error: "Revise a data do bloqueio." };
-  if (mode === "range" && (!/^\d{4}-\d{2}-\d{2}$/.test(endDate) || endDate < startDate)) return { error: "Revise a data final do bloqueio." };
-  if (mode !== "range" && (!/^\d{2}:\d{2}$/.test(startsAt) || !/^\d{2}:\d{2}$/.test(endsAt) || endsAt <= startsAt)) return { error: "Revise os horários do bloqueio." };
+  if (mode !== "weekly" && !validDate(startDate)) return { error: "Revise a data do bloqueio." };
+  if (mode === "range" && (!validDate(endDate) || endDate < startDate)) return { error: "Revise a data final do bloqueio." };
+  if (mode !== "range" && (!validClock(startsAt) || !validClock(endsAt) || endsAt <= startsAt)) return { error: "Revise os horários do bloqueio." };
   if (!workspace.location.default_professional_id) return { error: "A unidade ainda não possui um profissional padrão." };
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("create_availability_block", {
@@ -167,9 +169,9 @@ export async function createCustomerAndSeries(_state: ActionState, formData: For
   const serviceId = text(formData, "service_id");
   const maxOccurrences = text(formData, "max_occurrences");
   const endsOn = text(formData, "ends_on");
-  if (name.length < 2 || !/^\d{8,15}$/.test(phone)) return { error: "Informe nome e telefone válidos." };
-  if (!serviceId || !["weekly", "biweekly", "monthly"].includes(frequency) || !/^\d{4}-\d{2}-\d{2}$/.test(startsOn) || !/^\d{2}:\d{2}$/.test(startTime)) return { error: "Revise o serviço, a frequência, a data e o horário." };
-  if (endsOn && (!/^\d{4}-\d{2}-\d{2}$/.test(endsOn) || endsOn < startsOn)) return { error: "A data final não pode ser anterior à primeira data." };
+  if (name.length < 2 || name.length > 100 || !/^\d{8,15}$/.test(phone)) return { error: "Informe nome e telefone válidos." };
+  if (!validUuid(serviceId) || !["weekly", "biweekly", "monthly"].includes(frequency) || !validDate(startsOn) || !validClock(startTime)) return { error: "Revise o serviço, a frequência, a data e o horário." };
+  if (endsOn && (!validDate(endsOn) || endsOn < startsOn)) return { error: "A data final não pode ser anterior à primeira data." };
   if (maxOccurrences && (!Number.isInteger(Number(maxOccurrences)) || Number(maxOccurrences) < 1 || Number(maxOccurrences) > 240)) return { error: "Informe entre 1 e 240 ocorrências." };
   if (!workspace.location.default_professional_id) return { error: "A unidade ainda não possui um profissional padrão." };
   const supabase = await createSupabaseServerClient();
@@ -188,7 +190,7 @@ export async function createCustomerAndSeries(_state: ActionState, formData: For
   if (error?.code === "23P01") return { error: "Uma das datas está fora do expediente ou já ocupada. Nenhuma recorrência foi criada." };
   if (error?.code === "22023") return { error: "Revise os dados da recorrência e tente novamente." };
   if (error) {
-    console.error("[recurrence] Falha ao cadastrar cliente fixo.", { code: error.code, message: error.message });
+    console.error("[recurrence] Falha ao cadastrar cliente fixo.", { code: error.code });
     return { error: "Não foi possível criar a recorrência." };
   }
   revalidatePath("/dashboard/clientes");
