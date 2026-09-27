@@ -69,6 +69,30 @@ insert into public.calendar_events(id,organization_id,location_id,professional_i
 values (pg_temp.sid('block_a'),pg_temp.sid('org_a'),pg_temp.sid('loc_a'),pg_temp.sid('pro_a'),
   'block',now()+interval '11 days',now()+interval '11 days 30 minutes');
 
+-- Every foreign-table read test below must have real B rows, never pass merely
+-- because the table was empty. These are still transaction-local fixtures.
+insert into public.location_hours(organization_id,location_id,week_day,start_time,end_time)
+values(pg_temp.sid('org_b'),pg_temp.sid('loc_b'),1,'09:00','12:00');
+insert into public.professional_hours(organization_id,location_id,professional_id,week_day,start_time,end_time)
+values(pg_temp.sid('org_b'),pg_temp.sid('loc_b'),pg_temp.sid('pro_b'),1,'09:00','12:00');
+insert into public.professional_services(organization_id,professional_id,service_id)
+values(pg_temp.sid('org_b'),pg_temp.sid('pro_b'),pg_temp.sid('service_b'));
+insert into public.appointment_series(organization_id,location_id,professional_id,customer_id,service_id,frequency,starts_on,start_time)
+values(pg_temp.sid('org_b'),pg_temp.sid('loc_b'),pg_temp.sid('pro_b'),pg_temp.sid('customer_b'),pg_temp.sid('service_b'),'weekly',current_date+30,'09:00');
+insert into public.availability_blocks(organization_id,location_id,professional_id,start_date,end_date,is_all_day)
+values(pg_temp.sid('org_b'),pg_temp.sid('loc_b'),pg_temp.sid('pro_b'),current_date+31,current_date+31,true);
+insert into public.audit_logs(organization_id,action,entity_type,entity_id)
+values(pg_temp.sid('org_b'),'security.fixture','calendar_event',pg_temp.sid('event_b'));
+do $$ declare target text; total integer;
+begin
+  foreach target in array array['customers','services','calendar_events','locations','professionals',
+    'organization_memberships','location_professionals','location_hours','professional_hours',
+    'professional_services','appointment_series','availability_blocks','audit_logs'] loop
+    execute format('select count(*) from public.%I where organization_id=$1',target) into total using pg_temp.sid('org_b');
+    perform pg_temp.check_security('B fixture exists: '||target,total>0);
+  end loop;
+end; $$;
+
 set local role authenticated;
 select set_config('request.jwt.claim.sub',pg_temp.sid('user_a')::text,true);
 select pg_temp.check_security('A sees own booking',(select count(*)=1 from public.calendar_events where id=pg_temp.sid('event_a')));
