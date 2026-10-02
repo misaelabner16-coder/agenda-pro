@@ -41,6 +41,9 @@ agenda-pro-dev*.log
 # vercel
 .vercel
 
+# Supabase CLI project link/cache (not application source)
+/supabase/.temp/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

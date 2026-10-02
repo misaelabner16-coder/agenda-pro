@@ -27,7 +27,9 @@ test("preview cannot share production; local production requires explicit opt-in
   assert.throws(() => assertEnvironmentDatabase("development", prod));
   assert.doesNotThrow(() => assertEnvironmentDatabase(undefined, prod, true));
   assert.doesNotThrow(() => assertEnvironmentDatabase("production", prod));
-  assert.doesNotThrow(() => assertEnvironmentDatabase("preview", "https://separatetestproject.supabase.co"));
+  assert.doesNotThrow(() => assertEnvironmentDatabase("preview", "https://dbtxikkhzmqstuiudxko.supabase.co"));
+  assert.throws(() => assertEnvironmentDatabase("preview", "https://separatetestproject.supabase.co"));
+  assert.throws(() => assertEnvironmentDatabase("preview", undefined));
 });
 test("email confirmation origin cannot accidentally point to Supabase or unsafe URL", () => {
   for (const value of [undefined, "https://nuhxuhkunhuzljjjkzbx.supabase.co", "javascript:alert(1)", "https://user:pass@example.com", "https://example.com/path", "http://example.com"]) assert.throws(() => validatedSiteOrigin(value, true));

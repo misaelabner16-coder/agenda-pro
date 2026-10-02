@@ -1,4 +1,4 @@
-// Explicit remote integration test. Never loads .env.local (the legacy project).
+// Isolated Ammali Testes integration test. Never loads .env.local.
 // Privileged credentials are used ONLY to provision/clean this run's fixtures.
 // Every authorization assertion goes through HTTP with a normal signed user JWT.
 import assert from 'node:assert/strict';
@@ -9,12 +9,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 
-const project = 'nuhxuhkunhuzljjjkzbx';
+import { assertTestExecution, testAppOrigin, TEST_PROJECT_REF } from './test-environment.mjs';
+
+assertTestExecution();
+const appBase = process.env.SECURITY_TEST_APP_URL ? testAppOrigin(process.env.SECURITY_TEST_APP_URL) : undefined;
+const project = TEST_PROJECT_REF;
 const url = `https://${project}.supabase.co`;
 const cli = process.env.SUPABASE_CLI_PATH || 'C:/Users/misael/AppData/Local/Temp/agenda-pro-supabase-cli-3771594b-4ce3-463b-814b-7c04b50499fb/supabase.exe';
-if (!process.argv.includes('--confirm-sao-paulo-fixtures')) {
-  throw new Error('Requires --confirm-sao-paulo-fixtures; creates and removes only random test fixtures.');
-}
 function cliJson(args) {
   let output;
   try {
@@ -42,10 +43,7 @@ const users = [];
 const workspaces = [];
 const passed = [];
 const gatewayMode = process.argv.includes('--gateway');
-const appBase = process.env.SECURITY_TEST_APP_URL;
-const productionSmoke = process.argv.includes('--production-smoke');
-if (productionSmoke && (!gatewayMode || appBase !== 'https://agenda-pro-lovat.vercel.app')) throw new Error('Production smoke requires --gateway and the exact approved application URL');
-if (appBase && !['localhost', '127.0.0.1'].includes(new URL(appBase).hostname) && !productionSmoke) throw new Error('Remote application flow requires explicit --production-smoke');
+const localApp = appBase && ['localhost', '127.0.0.1', '[::1]'].includes(new URL(appBase).hostname);
 const rateDigests = [];
 const uuid = value => {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) throw new Error('Invalid fixture UUID');
@@ -196,8 +194,8 @@ try {
       const base = appBase;
       if (base) {
         // Matches server's explicit local-only test identity; never sent in request JSON.
-        // Production uses the deployment's own secret/IP: never clear those real quotas.
-        if (!productionSmoke) {
+        // Only the local runner uses this synthetic client identity.
+        if (localApp) {
           rateDigests.push(createHmac('sha256', adminKey).update('booking-ip:local-security-test').digest('hex'));
           rateDigests.push(createHmac('sha256', adminKey).update(`booking-phone:${b.slug}:11900000009`).digest('hex'));
         }

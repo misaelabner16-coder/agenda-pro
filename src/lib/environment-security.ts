@@ -1,11 +1,12 @@
 const productionDatabase = "https://nuhxuhkunhuzljjjkzbx.supabase.co";
+const testDatabase = "https://dbtxikkhzmqstuiudxko.supabase.co";
 const retiredDatabase = "https://tjxhohypuqjnlnbgstvy.supabase.co";
 
 export function assertEnvironmentDatabase(environment?: string, url?: string, allowProductionTest = false) {
   const normalized = url?.replace(/\/$/, "");
   if (normalized === retiredDatabase) throw new Error("Ambiente bloqueado: o banco antigo do Canadá foi aposentado.");
   if (environment === "production" && normalized !== productionDatabase) throw new Error("Publicação bloqueada: use o Supabase de São Paulo.");
-  if (environment === "preview" && normalized === productionDatabase) throw new Error("Preview bloqueado: configure um projeto Supabase separado de produção.");
+  if (environment === "preview" && normalized !== testDatabase) throw new Error("Preview bloqueado: use exclusivamente o projeto Ammali Testes.");
   if (environment !== "production" && environment !== "preview" && normalized === productionDatabase && !allowProductionTest) throw new Error("Acesso local à produção bloqueado. Use um projeto de testes ou autorização explícita temporária.");
 }
 

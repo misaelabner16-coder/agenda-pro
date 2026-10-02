@@ -7,6 +7,7 @@ import type { PublicService } from "@/lib/types";
 
 type Props = { slug: string; locationName: string; timeZone: string; services: PublicService[] };
 type Step = "service" | "slot" | "details" | "success";
+type SlotState = { starts_at: string; status: "available" | "occupied" | "blocked" };
 
 function todayInTimeZone(timeZone: string) {
   return new Intl.DateTimeFormat("en-CA", { timeZone }).format(new Date());
@@ -24,7 +25,8 @@ export function BookingFlow({ slug, locationName, timeZone, services }: Props) {
   const [step, setStep] = useState<Step>("service");
   const [serviceId, setServiceId] = useState(services[0]?.id ?? "");
   const [date, setDate] = useState(() => todayInTimeZone(timeZone));
-  const [slotResponse, setSlotResponse] = useState({ key: "", slots: [] as string[] });
+  const [slotResponse, setSlotResponse] = useState({ key: "", slots: [] as SlotState[] });
+  const [availabilityRevision, setAvailabilityRevision] = useState(0);
   const [slotError, setSlotError] = useState({ key: "", message: "" });
   const [selectedSlot, setSelectedSlot] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -33,11 +35,12 @@ export function BookingFlow({ slug, locationName, timeZone, services }: Props) {
   const [linkCopied, setLinkCopied] = useState(false);
   const submissionInFlight = useRef(false);
   const selectedService = useMemo(() => services.find((service) => service.id === serviceId), [services, serviceId]);
-  const requestKey = `${slug}:${serviceId}:${date}`;
+  const requestKey = `${slug}:${serviceId}:${date}:${availabilityRevision}`;
   const slots = slotResponse.key === requestKey ? slotResponse.slots : [];
   const loadingSlots = requestKey !== slotResponse.key && requestKey !== slotError.key;
   const error = bookingError || (slotError.key === requestKey ? slotError.message : "");
-  const usableSelectedSlot = slots.includes(selectedSlot) ? selectedSlot : "";
+  const usableSelectedSlot = slots.some((slot) => slot.starts_at === selectedSlot && slot.status === "available") ? selectedSlot : "";
+  const hasAvailableSlots = slots.some((slot) => slot.status === "available");
 
   async function copyManagementLink() {
     try {
@@ -52,11 +55,11 @@ export function BookingFlow({ slug, locationName, timeZone, services }: Props) {
   useEffect(() => {
     if (!serviceId || !date) return;
     const controller = new AbortController();
-    fetch(`/api/public/${encodeURIComponent(slug)}/availability?service_id=${encodeURIComponent(serviceId)}&date=${date}`, { signal: controller.signal })
+    fetch(`/api/public/${encodeURIComponent(slug)}/availability?service_id=${encodeURIComponent(serviceId)}&date=${date}`, { signal: controller.signal, cache: "no-store" })
       .then(async (response) => {
         const body = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(body.error ?? "Não foi possível carregar os horários.");
-        setSlotResponse({ key: requestKey, slots: body.slots ?? [] });
+        setSlotResponse({ key: requestKey, slots: body.slot_states ?? [] });
       })
       .catch((reason) => {
         if (reason.name === "AbortError") return;
@@ -81,7 +84,8 @@ export function BookingFlow({ slug, locationName, timeZone, services }: Props) {
       if (!response.ok) {
         setBookingError(body.error ?? "Não foi possível confirmar o agendamento.");
         if (response.status === 409) {
-          setSlotResponse((current) => ({ ...current, slots: current.slots.filter((slot) => slot !== usableSelectedSlot) }));
+          // Reload the whole date: a reservation can occupy several overlapping starts.
+          setAvailabilityRevision((current) => current + 1);
           setSelectedSlot("");
           setStep("slot");
         }
@@ -113,7 +117,7 @@ export function BookingFlow({ slug, locationName, timeZone, services }: Props) {
         </div>
         <p className="mt-3 text-xs leading-5 text-stone-500">Este link dá acesso somente ao seu agendamento. Não o compartilhe publicamente.</p>
       </section>}
-      <button type="button" onClick={() => { setStep("service"); setSelectedSlot(""); setManagementUrl(""); setLinkCopied(false); }} className="mt-6 text-sm font-semibold text-emerald-800 underline">Fazer outro agendamento</button>
+      <button type="button" onClick={() => { setStep("service"); setSelectedSlot(""); setManagementUrl(""); setLinkCopied(false); setAvailabilityRevision((current) => current + 1); }} className="mt-6 text-sm font-semibold text-emerald-800 underline">Fazer outro agendamento</button>
     </div>
   );
 
@@ -121,7 +125,30 @@ export function BookingFlow({ slug, locationName, timeZone, services }: Props) {
     <ol aria-label="Etapas da reserva" className="booking-steps mb-8 text-xs font-semibold text-stone-500">{([['service', 'Serviço'], ['slot', 'Horário'], ['details', 'Seus dados']] as const).map(([id, label], index) => <li key={id} aria-current={step === id ? "step" : undefined}><span className="mr-1.5 text-[10px]">0{index + 1}</span>{label}</li>)}</ol>
     {error && <p className="mb-5 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
     {step === "service" && <section><h2 className="text-2xl font-semibold tracking-tight">O que vamos fazer hoje?</h2><p className="mt-2 text-sm text-stone-500">Selecione o serviço para consultar os horários.</p><div className="mt-4 space-y-3">{services.map((service) => <button aria-pressed={serviceId === service.id} onClick={() => setServiceId(service.id)} className={`flex w-full items-center justify-between rounded-xl border p-4 text-left transition ${serviceId === service.id ? "border-emerald-600 bg-emerald-50 ring-1 ring-emerald-600 shadow-sm" : "border-stone-200 hover:border-stone-300"}`} key={service.id}><div><p className="font-semibold">{service.name}</p><p className="mt-1 text-sm text-stone-500">{service.duration_minutes} minutos</p></div><span className="ml-3 flex shrink-0 items-center gap-3 text-sm font-semibold">{formatCurrency(service.price_cents)}<span aria-hidden="true" className={`grid size-5 place-items-center rounded-full border ${serviceId === service.id ? "border-emerald-600 bg-emerald-600 text-white" : "border-stone-300"}`}>{serviceId === service.id ? "✓" : ""}</span></span></button>)}</div><button disabled={!serviceId} onClick={() => setStep("slot")} className="mt-6 w-full rounded-xl bg-emerald-600 px-4 py-3 font-semibold text-white disabled:opacity-50">Continuar →</button></section>}
-    {step === "slot" && <section><button onClick={() => setStep("service")} className="text-sm font-semibold text-emerald-700">← Voltar</button><h2 className="mt-4 text-xl font-bold">Escolha data e horário</h2><label className="mt-4 block text-sm font-semibold">Data<input type="date" min={todayInTimeZone(timeZone)} value={date} onChange={(event) => setDate(event.target.value)} className="mt-1.5 w-full rounded-xl border border-stone-300 px-3 py-3 outline-none focus:border-emerald-600" /></label><div className="mt-5"><p className="text-sm font-semibold">Horários disponíveis</p><p className="mt-1 text-xs text-stone-500">{selectedService?.name} · {selectedService?.duration_minutes} min · {timeZone}</p>{loadingSlots ? <p role="status" className="mt-3 rounded-xl bg-stone-50 p-4 text-sm text-stone-500">Buscando horários disponíveis…</p> : slots.length === 0 ? <p className="mt-3 rounded-xl bg-stone-50 p-4 text-sm text-stone-600">Não há horários disponíveis nesta data. Escolha outro dia.</p> : <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">{slots.map((slot) => <button aria-pressed={usableSelectedSlot === slot} onClick={() => setSelectedSlot(slot)} className={`rounded-lg border px-2 py-2.5 text-sm font-semibold ${usableSelectedSlot === slot ? "border-emerald-600 bg-emerald-600 text-white" : "border-stone-200 hover:border-emerald-500"}`} key={slot}>{slotLabel(slot, timeZone)}</button>)}</div>}</div><button disabled={!usableSelectedSlot} onClick={() => setStep("details")} className="mt-6 w-full rounded-xl bg-emerald-600 px-4 py-3 font-semibold text-white disabled:opacity-50">Continuar →</button></section>}
+    {step === "slot" && <section>
+      <button onClick={() => setStep("service")} className="text-sm font-semibold text-emerald-700">← Voltar</button>
+      <h2 className="mt-4 text-xl font-bold">Escolha data e horário</h2>
+      <label className="mt-4 block text-sm font-semibold">Data<input type="date" min={todayInTimeZone(timeZone)} value={date} onChange={(event) => { setDate(event.target.value); setSelectedSlot(""); setBookingError(""); }} className="mt-1.5 w-full rounded-xl border border-stone-300 px-3 py-3 outline-none focus:border-emerald-600" /></label>
+      <div className="mt-5">
+        <p className="text-sm font-semibold">Horários da agenda</p>
+        <p className="mt-1 text-xs text-stone-500">{selectedService?.name} · {selectedService?.duration_minutes} min · {timeZone}</p>
+        <p className="mt-2 text-xs leading-5 text-stone-600">Escolha um horário livre. Os ocupados e indisponíveis aparecem em cinza.</p>
+        {loadingSlots ? <p role="status" className="mt-3 rounded-xl bg-stone-50 p-4 text-sm text-stone-500">Buscando horários…</p> : <>
+          {!hasAvailableSlots && !error && <p role="status" className="mt-3 rounded-xl bg-stone-50 p-4 text-sm text-stone-600">Não há horários livres nesta data. Escolha outro dia.</p>}
+          {slots.length > 0 && <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
+            {slots.map((slot) => {
+              const available = slot.status === "available";
+              const label = slot.status === "occupied" ? "Ocupado" : "Indisponível";
+              return <button type="button" disabled={!available} aria-label={`${slotLabel(slot.starts_at, timeZone)} — ${available ? "Livre" : label}`} aria-pressed={usableSelectedSlot === slot.starts_at} onClick={() => setSelectedSlot(slot.starts_at)} className={`rounded-lg border px-2 py-2.5 text-sm font-semibold ${!available ? "cursor-not-allowed border-stone-200 bg-stone-100 text-stone-500" : usableSelectedSlot === slot.starts_at ? "border-emerald-600 bg-emerald-600 text-white" : "border-stone-200 hover:border-emerald-500"}`} key={slot.starts_at}>
+                <span className={available ? "" : "line-through"}>{slotLabel(slot.starts_at, timeZone)}</span>
+                {!available && <span className="mt-1 block text-[10px] font-normal">{label}</span>}
+              </button>;
+            })}
+          </div>}
+        </>}
+      </div>
+      <button disabled={!usableSelectedSlot || loadingSlots} onClick={() => setStep("details")} className="mt-6 w-full rounded-xl bg-emerald-600 px-4 py-3 font-semibold text-white disabled:opacity-50">Continuar →</button>
+    </section>}
     {step === "details" && selectedService && usableSelectedSlot && <section>
       <button onClick={() => setStep("slot")} className="text-sm font-semibold text-emerald-700">← Voltar</button>
       <h2 className="mt-4 text-xl font-bold">Seus dados</h2>

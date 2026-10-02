@@ -6,7 +6,16 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $env:NODE_USE_SYSTEM_CA = '1'
-$projectRef = 'nuhxuhkunhuzljjjkzbx'
+$projectRef = 'dbtxikkhzmqstuiudxko'
+# Existing release scripts may explicitly request the encrypted, read-only
+# production backup. Arbitrary tests/candidate migrations always target staging.
+if ($EncryptedSnapshot) {
+  $snapshotSource = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../supabase/tests/security_snapshot.sql'))
+  if ($CandidateMigration -or [IO.Path]::GetFullPath($SqlFile) -ne $snapshotSource) {
+    throw 'Production snapshot requires the exact snapshot SQL file and no candidate migration.'
+  }
+  $projectRef = 'nuhxuhkunhuzljjjkzbx'
+}
 $sql = Get-Content -LiteralPath $SqlFile -Raw
 $temporaryQuery = $null
 try {
